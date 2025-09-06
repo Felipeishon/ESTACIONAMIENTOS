@@ -1,25 +1,43 @@
-export function displayReservations(reservations) {
+export function displayReservations(reservations, isAdmin = false, currentUserEmail = null) {
     const reservationsList = document.getElementById('reservationsList');
     reservationsList.innerHTML = '';
 
-    if (reservations.length === 0) {
+    if (!reservations || reservations.length === 0) {
         const emptyMessage = document.createElement('p');
-        emptyMessage.textContent = 'No hay reservas existentes.';
+        emptyMessage.textContent = 'No hay reservas activas.';
         reservationsList.appendChild(emptyMessage);
         return;
     }
 
-    const sortedReservations = [...reservations].sort((a, b) =>
-        new Date(a.date) - new Date(b.date)
-    );
+    const sortedReservations = [...reservations].sort((a, b) => {
+        const dateA = new Date(`${a.date}T${a.startTime}`);
+        const dateB = new Date(`${b.date}T${b.startTime}`);
+        return dateA - dateB;
+    });
 
     sortedReservations.forEach(reservation => {
         const reservationElement = document.createElement('div');
         reservationElement.className = 'reservation-card';
-        const userDisplay = reservation.name || reservation.user || reservation.email; // Fallback for older reservations
+        const userDisplay = reservation.name || reservation.email;
+
+        let deleteButtonHtml = '';
+        const isOwner = currentUserEmail && reservation.email === currentUserEmail;
+
+        // Mostrar botón si es admin, o si es la reserva del usuario
+        if (isAdmin || isOwner) {
+            const buttonText = isAdmin ? 'Eliminar' : 'Cancelar';
+            const buttonClass = isAdmin ? 'delete-btn admin' : 'delete-btn';
+            deleteButtonHtml = `
+                <button class="${buttonClass}" 
+                        data-reservation-id="${reservation.id}" 
+                        data-user-email="${reservation.email}" 
+                        aria-label="${buttonText} reserva del espacio ${reservation.spotName} para ${userDisplay}">
+                    ${buttonText}
+                </button>`;
+        }
 
         reservationElement.innerHTML = `
-            <button class="delete-btn" data-reservation-id="${reservation.id}" aria-label="Cancelar reserva del espacio ${reservation.spotId} para ${userDisplay}">Cancelar</button>
+            ${deleteButtonHtml}
             <h3>${reservation.spotName || `Espacio #${reservation.spotId}`}</h3>
             <p>Fecha: <span class="reservation-date">${reservation.date}</span></p>
             <p>Horario: <span class="reservation-time">${reservation.startTime} - ${reservation.endTime}</span></p>

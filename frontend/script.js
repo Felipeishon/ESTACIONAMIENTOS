@@ -1,8 +1,9 @@
-import { getParkingSpots, createReservation, getReservations, deleteReservation, getConfig } from './api.js';
+import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, getConfig } from './api.js';
 import { displayReservations, resetForm } from './ui.js';
 import { showToast } from './toast.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Elementos del DOM
     const emailSection = document.getElementById('emailSection');
     const emailForm = document.getElementById('emailForm');
     const emailInput = document.getElementById('email');
@@ -11,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const parkingGrid = document.getElementById('parkingGrid');
     const reservationsList = document.getElementById('reservationsList');
     const gridDateInput = document.getElementById('gridDate');
+    const deleteAllButton = document.getElementById('deleteAllButton');
 
     const reservationModal = document.getElementById('reservationModal');
     const modalCloseBtn = reservationModal.querySelector('.close');    
@@ -18,18 +20,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const endTimeInput = document.getElementById('endTime');
     const confirmModalReservationBtn = document.getElementById('confirmModalReservation');
 
+    // Estado de la aplicación
     let allowedEmailDomain = '';
     let userEmail = '';
     let userName = '';
     let selectedSpotId = null;
     let selectedDate = null;
     let allTimeSlotsForSpot = [];
+    let adminPassword = null; // Contraseña de administrador
+    const ADMIN_EMAIL = 'reservas.estacionamiento.iansa@gmail.com';
 
-    // Fetch config and set allowed email domain
+    // --- INICIALIZACIÓN ---
     getConfig()
         .then(config => {
             allowedEmailDomain = config.allowedEmailDomain;
-            emailInput.pattern = `.+${allowedEmailDomain.replace('.', '\\.')}`;
+            // Se elimina la validación de patrón HTML5 para permitir el email de admin.
+            // La validación de dominio se hace en el evento de submit.
             emailInput.title = `Por favor, use una dirección de correo electrónico de ${allowedEmailDomain}`;
         })
         .catch(error => {
@@ -37,30 +43,64 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('No se pudo cargar la configuración del servidor.');
         });
 
+    // --- MANEJADORES DE EVENTOS ---
     emailForm.addEventListener('submit', (event) => {
         event.preventDefault();
         const email = emailInput.value.trim();
         const name = userNameInput.value.trim();
 
-        if (email.endsWith(allowedEmailDomain)) {
-            userEmail = email;
-            userName = name;
-            emailSection.style.display = 'none';
-            reservationSection.style.display = 'block';
-            initializeGridAndReservations();
-            loadAndDisplayReservations();
-        } else {
-            showToast(`Por favor, use una dirección de correo electrónico de ${allowedEmailDomain}`);
+        // Flujo de Administrador
+        if (email === ADMIN_EMAIL && name === ADMIN_EMAIL) {
+            const password = prompt('Ingrese la contraseña de administrador:');
+            if (password) {
+                adminPassword = password;
+                userEmail = email;
+                userName = name;
+                
+                showToast('Modo administrador activado.');
+                deleteAllButton.style.display = 'block';
+                emailSection.style.display = 'none';
+                reservationSection.style.display = 'block';
+                initializeGridAndReservations(true); // Iniciar como admin
+            }
+            return; // Terminar el flujo aquí para el admin
         }
+
+        // Flujo de Usuario Normal
+        const nameParts = name.split(' ').filter(part => part.length > 0);
+        if (name.length < 5 || nameParts.length < 2) {
+            showToast('Por favor, ingrese un nombre y apellido válidos.');
+            return;
+        }
+
+        if (!email.endsWith(allowedEmailDomain)) {
+            showToast(`Por favor, use una dirección de correo electrónico de ${allowedEmailDomain}`);
+            return;
+        }
+
+        // Si es un usuario válido, proceder
+        userEmail = email;
+        userName = name;
+        adminPassword = null; // Asegurarse que no está en modo admin
+        deleteAllButton.style.display = 'none';
+
+        emailSection.style.display = 'none';
+        reservationSection.style.display = 'block';
+        initializeGridAndReservations(false); // Iniciar como no-admin
     });
 
-    modalCloseBtn.addEventListener('click', () => {
-        closeModal();
-    });
-
-    window.addEventListener('click', (event) => {
-        if (event.target === reservationModal) {
-            closeModal();
+    deleteAllButton.addEventListener('click', async () => {
+        if (!adminPassword) return;
+        const confirmation = confirm('¿Está seguro de que desea eliminar TODAS las reservas? Esta acción no se puede deshacer.');
+        if (confirmation) {
+            try {
+                await deleteAllReservations(adminPassword);
+                showToast('Todas las reservas han sido eliminadas.');
+                initializeGridAndReservations(true);
+            } catch (error) {
+                console.error('Error deleting all reservations:', error);
+                showToast(error.message);
+            }
         }
     });
 
@@ -68,46 +108,38 @@ document.addEventListener('DOMContentLoaded', () => {
         loadParkingGrid(gridDateInput.value);
     });
 
-    startTimeInput.addEventListener('change', () => {
-        updateEndTimeOptions();
-    });
+    reservationsList.addEventListener('click', async (event) => {
+        if (event.target.classList.contains('delete-btn')) {
+            const reservationId = event.target.dataset.reservationId;
+            const isAdmin = !!adminPassword;
 
-    confirmModalReservationBtn.addEventListener('click', async () => {
-        const startTime = startTimeInput.value;
-        const endTime = endTimeInput.value;
-
-        if (!startTime || !endTime) {
-            showToast('Por favor, seleccione un horario de entrada y salida.');
-            return;
-        }
-
-        const reservationData = {
-            spotId: selectedSpotId,
-            date: selectedDate,
-            startTime: startTime,
-            endTime: endTime,
-            name: userName,
-            email: userEmail,
-        };
-
-        try {
-            const result = await createReservation(reservationData);
-            showToast('Reserva creada exitosamente!');
-            closeModal();
-            // The API now returns the full state, so we just need to redraw.
-            displayReservations(result.myReservations);
-            redrawParkingGrid(result.gridState);
-        } catch (error) {
-            console.error('Error:', error);
-            showToast(error.message);
+            try {
+                const result = await deleteReservation(reservationId, adminPassword, userEmail);
+                showToast('Reserva cancelada exitosamente!');
+                gridDateInput.value = result.gridDate;
+                loadAndDisplayReservations(isAdmin);
+                redrawParkingGrid(result.gridState);
+            } catch (error) {
+                console.error('Error:', error);
+                showToast(error.message);
+            }
         }
     });
 
-    function initializeGridAndReservations() {
+    // --- Lógica de Modal ---
+    modalCloseBtn.addEventListener('click', () => closeModal());
+    window.addEventListener('click', (event) => {
+        if (event.target === reservationModal) closeModal();
+    });
+    startTimeInput.addEventListener('change', () => updateEndTimeOptions());
+    confirmModalReservationBtn.addEventListener('click', handleConfirmReservation);
+
+    // --- FUNCIONES PRINCIPALES ---
+    function initializeGridAndReservations(isAdmin = false) {
         const today = new Date().toISOString().split('T')[0];
         gridDateInput.value = today;
         loadParkingGrid(today);
-        loadAndDisplayReservations();
+        loadAndDisplayReservations(isAdmin);
     }
 
     async function loadParkingGrid(date) {
@@ -124,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function redrawParkingGrid(spots) {
         parkingGrid.innerHTML = '';
-
         if (!spots || spots.length === 0) {
             parkingGrid.innerHTML = '<p>No hay información de estacionamientos disponible.</p>';
             return;
@@ -145,53 +176,39 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isFullyReserved) {
                 spotElement.classList.add('reserved');
                 tooltipText = 'Espacio reservado todo el día';
-                spotElement.tabIndex = -1; // Not focusable if fully reserved
+                spotElement.tabIndex = -1;
             } else if (isPartiallyReserved) {
                 spotElement.classList.add('partial');
                 tooltipText = 'Reservas parciales:\n';
 
-                // Group consecutive slots to form reservation blocks
-                const reservationBlocks = [];
-                let currentBlock = null;
-
-                reservedSlots.forEach(slot => {
-                    // A block is consecutive if the user is the same and the times touch
-                    if (currentBlock && currentBlock.reservedBy === slot.reservedBy && currentBlock.endTime === slot.startTime) {
-                        // Extend the current block
-                        currentBlock.endTime = slot.endTime;
-                    } else {
-                        // Finish the previous block (if any) and start a new one
-                        if (currentBlock) {
-                            reservationBlocks.push(currentBlock);
-                        }
-                        currentBlock = {
-                            reservedBy: slot.reservedBy,
-                            startTime: slot.startTime,
-                            endTime: slot.endTime,
-                        };
+                const reservationsByUser = reservedSlots.reduce((acc, slot) => {
+                    const user = slot.reservedBy || 'Desconocido';
+                    if (!acc[user]) {
+                        acc[user] = [];
                     }
-                });
-                if (currentBlock) {
-                    reservationBlocks.push(currentBlock); // Add the last block
-                }
-
-                // Create a summary for the tooltip from the blocks
-                const summary = reservationBlocks.reduce((acc, block) => {
-                    if (!acc[block.reservedBy]) acc[block.reservedBy] = [];
-                    acc[block.reservedBy].push(`${block.startTime}-${block.endTime}`);
+                    acc[user].push(slot);
                     return acc;
                 }, {});
 
-                Object.entries(summary).forEach(([user, times]) => {
-                    tooltipText += `- ${user || 'Desconocido'} (${times.join(', ')})\n`;
+                Object.entries(reservationsByUser).forEach(([user, slots]) => {
+                    const timeBlocks = [];
+                    let currentBlock = null;
+                    slots.forEach(slot => {
+                        if (currentBlock && currentBlock.endTime === slot.startTime) {
+                            currentBlock.endTime = slot.endTime;
+                        } else {
+                            if (currentBlock) timeBlocks.push(currentBlock);
+                            currentBlock = { startTime: slot.startTime, endTime: slot.endTime };
+                        }
+                    });
+                    if (currentBlock) timeBlocks.push(currentBlock);
+
+                    const timeRanges = timeBlocks.map(block => `${block.startTime}-${block.endTime}`);
+                    tooltipText += `- ${user} (${timeRanges.join(', ')})\n`;
                 });
             }
 
-            if (isFullyReserved || isPartiallyReserved) {
-                spotElement.title = tooltipText.trim();
-            } else {
-                spotElement.title = 'Haga clic para reservar este espacio';
-            }
+            spotElement.title = tooltipText.trim() || 'Haga clic para reservar este espacio';
 
             if (!isFullyReserved) {
                 spotElement.addEventListener('click', () => openModal(spot.id, spot.name));
@@ -202,20 +219,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
-
             parkingGrid.appendChild(spotElement);
         });
+    }
+
+    async function handleConfirmReservation() {
+        const reservationData = {
+            spotId: selectedSpotId,
+            date: selectedDate,
+            startTime: startTimeInput.value,
+            endTime: endTimeInput.value,
+            name: userName,
+            email: userEmail,
+        };
+
+        try {
+            const result = await createReservation(reservationData);
+            showToast('Reserva creada exitosamente!');
+            closeModal();
+            displayReservations(result.myReservations, !!adminPassword, userEmail);
+            redrawParkingGrid(result.gridState);
+        } catch (error) {
+            console.error('Error:', error);
+            showToast(error.message);
+        }
     }
 
     async function openModal(spotId, spotName) {
         selectedSpotId = spotId;
         selectedDate = gridDateInput.value;
-
         document.getElementById('modalSpotName').textContent = spotName;
         document.getElementById('modalDateDisplay').textContent = selectedDate;
-
-        startTimeInput.innerHTML = '';
-        endTimeInput.innerHTML = '';
         await populateTimeSelects(spotId, selectedDate);
         reservationModal.style.display = 'block';
     }
@@ -238,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const spots = await getParkingSpots(date);
             const spot = spots.find(s => s.id === spotId);
-            startTimeInput.innerHTML = ''; // Clear loading message
+            startTimeInput.innerHTML = '';
             endTimeInput.innerHTML = '';
 
             if (!spot) {
@@ -265,7 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Add a default placeholder option
             const placeholder = document.createElement('option');
             placeholder.textContent = 'Seleccione...';
             placeholder.value = '';
@@ -318,15 +351,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const startIndex = allTimeSlotsForSpot.findIndex(slot => slot.startTime === selectedStartTime);
         if (startIndex === -1) return;
 
-        // Iterate through possible end points
         for (let i = startIndex; i < allTimeSlotsForSpot.length; i++) {
             const slot = allTimeSlotsForSpot[i];
             if (slot.isReserved) {
-                // We've hit a reserved slot, so we can't book any further.
                 break;
             }
 
-            // The end time of the current slot is a valid end time for the reservation.
             const optionElement = document.createElement('option');
             optionElement.textContent = slot.endTime;
             optionElement.value = slot.endTime;
@@ -343,40 +373,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadAndDisplayReservations() {
+    async function loadAndDisplayReservations(isAdmin = false) {
         try {
             const reservations = await getReservations();
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // Set to the beginning of today to compare dates only
+            today.setHours(0, 0, 0, 0);
 
-            // Filter reservations to show only those belonging to the current user and are for today or a future date
-            const myReservations = reservations.filter(r => {
-                // Timezone-safe parsing to avoid off-by-one day errors
-                const reservationDate = new Date(`${r.date}T00:00:00`);
-                return r.email === userEmail && reservationDate >= today;
-            });
-            displayReservations(myReservations);
+            let reservationsToDisplay;
+            if (isAdmin) {
+                reservationsToDisplay = reservations.filter(r => new Date(`${r.date}T00:00:00`) >= today);
+            } else {
+                reservationsToDisplay = reservations.filter(r => {
+                    const reservationDate = new Date(`${r.date}T00:00:00`);
+                    return r.email === userEmail && reservationDate >= today;
+                });
+            }
+            displayReservations(reservationsToDisplay, isAdmin, userEmail);
         } catch (error) {
             console.error('Error:', error);
             showToast(error.message);
         }
     }
-
-    reservationsList.addEventListener('click', async (event) => {
-        if (event.target.classList.contains('delete-btn')) {
-            const reservationId = event.target.dataset.reservationId;
-            try {
-                const result = await deleteReservation(reservationId);
-                showToast('Reserva cancelada exitosamente!');
-                // The API returns the state for the date of the deleted reservation.
-                // Update the grid date selector and redraw everything.
-                gridDateInput.value = result.gridDate;
-                displayReservations(result.myReservations);
-                redrawParkingGrid(result.gridState);
-            } catch (error) {
-                console.error('Error:', error);
-                showToast(error.message);
-            }
-        }
-    });
 });

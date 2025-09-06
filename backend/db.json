@@ -72,6 +72,46 @@
       "endTime": "20:00",
       "name": "xxxxxx xxxxxx",
       "email": "fegarayes@gmail.com"
+    },
+    {
+      "id": "3c98c5b3-7525-4534-bf1f-3da803d65244",
+      "spotId": 9,
+      "spotName": "MISTRAL3103",
+      "date": "2025-09-09",
+      "startTime": "08:00",
+      "endTime": "18:00",
+      "name": "felipe garay",
+      "email": "fegarayes@gmail.com"
+    },
+    {
+      "id": "bb2713fc-7ed1-4307-8878-d82821a4af3c",
+      "spotId": 18,
+      "spotName": "RADISON1",
+      "date": "2025-09-12",
+      "startTime": "08:00",
+      "endTime": "18:00",
+      "name": "Matias Mundaca",
+      "email": "testcero1973@gmail.com"
+    },
+    {
+      "id": "93233056-0dcc-4120-9ffa-aaa1ee9bc25c",
+      "spotId": 15,
+      "spotName": "MISTRAL4137",
+      "date": "2025-09-11",
+      "startTime": "09:00",
+      "endTime": "18:00",
+      "name": "felipe garay",
+      "email": "fegarayes@gmail.com"
+    },
+    {
+      "id": "13fc786f-eed6-43d2-b92c-a60bbf2163c5",
+      "spotId": 27,
+      "spotName": "RADISON10",
+      "date": "2025-09-10",
+      "startTime": "08:00",
+      "endTime": "18:00",
+      "name": "felipe garay",
+      "email": "fegarayes@gmail.com"
     }
   ]
 }
