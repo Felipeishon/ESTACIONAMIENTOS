@@ -1,0 +1,77 @@
+{
+  "reservations": [
+    {
+      "id": 1756418029422,
+      "spotId": 5,
+      "date": "2025-08-28",
+      "startTime": "08:00",
+      "endTime": "18:00",
+      "user": "Felipe"
+    },
+    {
+      "id": "05d72b7f-8385-4154-9496-75c371cb2013",
+      "spotId": 1,
+      "spotName": "MATTA6060",
+      "date": "2025-09-04",
+      "startTime": "16:00",
+      "endTime": "17:00",
+      "email": "felipe.garay@iansa.cl"
+    },
+    {
+      "id": "8af3f549-7baf-4a78-9d4b-d0a353c65e88",
+      "spotId": 1,
+      "spotName": "MATTA6060",
+      "date": "2025-09-04",
+      "startTime": "17:00",
+      "endTime": "18:00",
+      "email": "matias.mundaca@iansa.cl"
+    },
+    {
+      "id": "bd21b40c-92d5-424a-9105-38e49169f48a",
+      "spotId": 1,
+      "spotName": "MATTA6060",
+      "date": "2025-09-05",
+      "startTime": "12:00",
+      "endTime": "13:00",
+      "email": "felipe.garay@iansa.cl"
+    },
+    {
+      "id": "4b9d1484-6bb4-40ac-a010-d0fc11fc8908",
+      "spotId": 1,
+      "spotName": "MATTA6060",
+      "date": "2025-09-05",
+      "startTime": "13:00",
+      "endTime": "14:00",
+      "email": "matias.mundaca@iansa.cl"
+    },
+    {
+      "id": "407057d4-a4e6-404e-a458-3039475d5293",
+      "spotId": 1,
+      "spotName": "MATTA6060",
+      "date": "2025-09-05",
+      "startTime": "17:00",
+      "endTime": "18:00",
+      "email": "carla.garrido@iansa.cl"
+    },
+    {
+      "id": "fe4bfb80-440a-4f48-ab34-410f59965f07",
+      "spotId": 1,
+      "spotName": "MATTA6060",
+      "date": "2025-09-05",
+      "startTime": "16:30",
+      "endTime": "17:00",
+      "name": "felipe",
+      "email": "fegarayes@gmail.com"
+    },
+    {
+      "id": "92910cb4-982c-439a-87c9-ac67c21fe4e9",
+      "spotId": 1,
+      "spotName": "MATTA6060",
+      "date": "2025-09-05",
+      "startTime": "19:00",
+      "endTime": "20:00",
+      "name": "xxxxxx xxxxxx",
+      "email": "fegarayes@gmail.com"
+    }
+  ]
+}
