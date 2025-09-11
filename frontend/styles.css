@@ -383,6 +383,10 @@ input:focus {
     margin-bottom: 0;
 }
 
+.date-selector input[type="date"] {
+    width: auto;
+}
+
 /* Custom Tooltip Styles */
 .tooltip-text {
     visibility: hidden;
