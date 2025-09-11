@@ -32,11 +32,11 @@
 
         <section id="reservationSection" style="display: none;" aria-labelledby="reservation-heading">
             <h2 id="reservation-heading">Reservar Estacionamiento</h2>
-            <p>Haga clic en un espacio para seleccionar fecha y horario.</p>
             <div class="date-selector">
                 <label for="gridDate">Ver disponibilidad para:</label>
                 <input type="date" id="gridDate">
             </div>
+            <p>Haga clic en un espacio para seleccionar horario.</p>
 
             <div id="parkingGrid" class="parking-grid">
                 <!-- Parking spots will be generated here by script.js -->
@@ -63,8 +63,8 @@
             </div>
         </div>
 
-        <section class="reservations" aria-labelledby="reservations-heading">
-            <h2 id="reservations-heading">Mis Reservas</h2>
+        <section class="reservations" aria-labelledby="my-reservations-heading">
+            <h2 id="my-reservations-heading">Mis Reservas</h2>
             <button id="deleteAllButton" class="delete-all-button" style="display: none;">Eliminar Todas las Reservas</button>
             <div id="reservationsList" role="list" aria-label="Lista de reservas existentes"></div>
         </section>

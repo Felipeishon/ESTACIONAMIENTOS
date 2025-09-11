@@ -1,117 +1,34 @@
 {
   "reservations": [
     {
-      "id": 1756418029422,
-      "spotId": 5,
-      "date": "2025-08-28",
-      "startTime": "08:00",
-      "endTime": "18:00",
-      "user": "Felipe"
-    },
-    {
-      "id": "05d72b7f-8385-4154-9496-75c371cb2013",
+      "id": "c0d52eed-5f61-4232-b19c-a2fa75aae62e",
       "spotId": 1,
       "spotName": "MATTA6060",
-      "date": "2025-09-04",
-      "startTime": "16:00",
-      "endTime": "17:00",
-      "email": "felipe.garay@iansa.cl"
-    },
-    {
-      "id": "8af3f549-7baf-4a78-9d4b-d0a353c65e88",
-      "spotId": 1,
-      "spotName": "MATTA6060",
-      "date": "2025-09-04",
-      "startTime": "17:00",
-      "endTime": "18:00",
-      "email": "matias.mundaca@iansa.cl"
-    },
-    {
-      "id": "bd21b40c-92d5-424a-9105-38e49169f48a",
-      "spotId": 1,
-      "spotName": "MATTA6060",
-      "date": "2025-09-05",
-      "startTime": "12:00",
-      "endTime": "13:00",
-      "email": "felipe.garay@iansa.cl"
-    },
-    {
-      "id": "4b9d1484-6bb4-40ac-a010-d0fc11fc8908",
-      "spotId": 1,
-      "spotName": "MATTA6060",
-      "date": "2025-09-05",
-      "startTime": "13:00",
-      "endTime": "14:00",
-      "email": "matias.mundaca@iansa.cl"
-    },
-    {
-      "id": "407057d4-a4e6-404e-a458-3039475d5293",
-      "spotId": 1,
-      "spotName": "MATTA6060",
-      "date": "2025-09-05",
-      "startTime": "17:00",
-      "endTime": "18:00",
-      "email": "carla.garrido@iansa.cl"
-    },
-    {
-      "id": "fe4bfb80-440a-4f48-ab34-410f59965f07",
-      "spotId": 1,
-      "spotName": "MATTA6060",
-      "date": "2025-09-05",
-      "startTime": "16:30",
-      "endTime": "17:00",
-      "name": "felipe",
-      "email": "fegarayes@gmail.com"
-    },
-    {
-      "id": "92910cb4-982c-439a-87c9-ac67c21fe4e9",
-      "spotId": 1,
-      "spotName": "MATTA6060",
-      "date": "2025-09-05",
+      "date": "2025-09-09",
       "startTime": "19:00",
       "endTime": "20:00",
-      "name": "xxxxxx xxxxxx",
-      "email": "fegarayes@gmail.com"
-    },
-    {
-      "id": "3c98c5b3-7525-4534-bf1f-3da803d65244",
-      "spotId": 9,
-      "spotName": "MISTRAL3103",
-      "date": "2025-09-09",
-      "startTime": "08:00",
-      "endTime": "18:00",
       "name": "felipe garay",
       "email": "fegarayes@gmail.com"
     },
     {
-      "id": "bb2713fc-7ed1-4307-8878-d82821a4af3c",
-      "spotId": 18,
-      "spotName": "RADISON1",
-      "date": "2025-09-12",
+      "id": "313857fa-751f-46bc-9d0b-c16b15dc9de2",
+      "spotId": 2,
+      "spotName": "MATTA6067",
+      "date": "2025-09-10",
       "startTime": "08:00",
       "endTime": "18:00",
       "name": "Matias Mundaca",
       "email": "testcero1973@gmail.com"
     },
     {
-      "id": "93233056-0dcc-4120-9ffa-aaa1ee9bc25c",
-      "spotId": 15,
-      "spotName": "MISTRAL4137",
-      "date": "2025-09-11",
-      "startTime": "09:00",
-      "endTime": "18:00",
-      "name": "felipe garay",
-      "email": "fegarayes@gmail.com"
-    },
-    {
-      "id": "13fc786f-eed6-43d2-b92c-a60bbf2163c5",
-      "spotId": 27,
-      "spotName": "RADISON10",
-      "date": "2025-09-10",
-      "startTime": "08:00",
-      "endTime": "18:00",
-      "name": "felipe garay",
-      "email": "fegarayes@gmail.com"
+      "id": "2ec81429-b87b-4866-89b9-d6f5227eaa71",
+      "spotId": 3,
+      "spotName": "MISTRAL1017",
+      "date": "2025-09-09",
+      "startTime": "20:00",
+      "endTime": "21:00",
+      "name": "mary valderrama",
+      "email": "valderramamary.mcv@gmail.com"
     }
   ]
 }

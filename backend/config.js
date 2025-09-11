@@ -27,7 +27,9 @@ const config = {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
         from: process.env.EMAIL_FROM || `"Sistema de Reservas" <${process.env.EMAIL_USER}>`
-    }
+    },
+    jwtSecret: process.env.JWT_SECRET || 'a-very-secret-key',
+    adminPassword: process.env.ADMIN_PASSWORD || 'admin123'
 };
 
 module.exports = config;

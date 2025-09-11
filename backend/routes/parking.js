@@ -1,12 +1,10 @@
 const express = require('express');
-const { generateGridForDate, acquireLock, releaseLock } = require('../utils');
+const { generateGridForDate } = require('../utils');
 
 const router = express.Router();
 
 // GET /api/parking-spots?date=YYYY-MM-DD
 router.get('/', async (req, res) => {
-  // Acquire a lock to prevent reading the file while it's being written to.
-  await acquireLock();
   try {
     const { date } = req.query;
     console.log(`[GET /api/parking-spots] Request received: ${JSON.stringify({ date })}`);
@@ -21,8 +19,6 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('[GET /api/parking-spots] Failed to get parking spots:', error);
     res.status(500).json({ message: 'Error processing parking spot availability.' });
-  } finally {
-    releaseLock();
   }
 });
 

@@ -1,9 +1,8 @@
-const express = require('express');
+const router = require('express').Router();
 const { randomUUID } = require('crypto');
 const { readReservations, writeReservations, isTimeOverlap, isHoliday, acquireLock, releaseLock, sendReservationConfirmationEmail, sendReservationCancellationEmail, generateGridForDate, getMyActiveReservations } = require('../utils');
 const config = require('../config');
 
-const router = express.Router();
 const NUMBER_OF_SPOTS = config.numberOfSpots;
 const SPOT_NAMES = config.spotNames;
 
@@ -19,15 +18,12 @@ const adminAuth = (req, res, next) => {
 
 // GET /api/reservations
 router.get('/', async (req, res) => {
-  await acquireLock();
   try {
     const reservations = await readReservations();
     res.json(reservations);
   } catch (error) {
     console.error('[GET /api/reservations] Failed to get reservations:', error);
     res.status(500).json({ message: 'Error al recuperar las reservas de la base de datos.' });
-  } finally {
-    releaseLock();
   }
 });
 
@@ -77,7 +73,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const adminPassword = req.headers['x-admin-password'];
-    const { email: userEmail } = req.body; // Email del usuario que intenta borrar
+    const { email: userEmail } = req.body;
 
     const reservations = await readReservations();
     const reservationIndex = reservations.findIndex(r => r.id === id);
@@ -92,14 +88,10 @@ router.delete('/:id', async (req, res) => {
     // Autorizado si es admin
     if (adminPassword && adminPassword === config.adminPassword) {
         isAuthorized = true;
-        console.log(`[DELETE /${id}] Admin authorized deletion.`);
     }
     // O si el email coincide (para usuarios normales)
     else if (userEmail && userEmail === reservationToDelete.email) {
         isAuthorized = true;
-        console.log(`[DELETE /${id}] User ${userEmail} authorized for own reservation.`);
-    } else {
-        console.log(`[DELETE /${id}] Unauthorized attempt. User email: ${userEmail}, Reservation email: ${reservationToDelete.email}`);
     }
 
     if (!isAuthorized) {
@@ -110,7 +102,7 @@ router.delete('/:id', async (req, res) => {
     await writeReservations(reservations);
 
     sendReservationCancellationEmail(reservationToDelete).catch(err => {
-        console.error(`[DELETE /${id}] Sending cancellation email failed:`, err);
+        console.error(`[DELETE /api/reservations/${id}] Sending cancellation email failed:`, err);
     });
 
     const gridDate = reservationToDelete.date;
@@ -121,7 +113,7 @@ router.delete('/:id', async (req, res) => {
       message: 'Reserva eliminada con éxito',
       gridState,
       gridDate,
-      myReservations: myActiveReservations,
+      myActiveReservations: myActiveReservations,
     });
   } catch (error) {
     console.error(`[DELETE /api/reservations/${req.params.id}] Failed:`, error);

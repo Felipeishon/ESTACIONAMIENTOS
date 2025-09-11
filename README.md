@@ -43,7 +43,7 @@ cd frontend
 
 ## Ejecución
 
-Para probar la aplicación, necesitarás **dos terminales separadas**. Los comandos `npm start` y `npx serve` deben ejecutarse desde sus respectivas carpetas (`backend` y `frontend`), no desde la carpeta raíz del proyecto.
+StratPara probar la aplicación, necesitarás **dos terminales separadas**. Los comandos `npm start` y `npx serve` deben ejecutarse desde sus respectivas carpetas (`backend` y `frontend`), no desde la carpeta raíz del proyecto.
 
 **Terminal 1: Iniciar el Backend (el servidor)**
 ```bash

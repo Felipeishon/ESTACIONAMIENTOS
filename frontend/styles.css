@@ -378,6 +378,11 @@ input:focus {
     max-width: 400px;
 }
 
+.date-selector label {
+    display: initial;
+    margin-bottom: 0;
+}
+
 /* Custom Tooltip Styles */
 .tooltip-text {
     visibility: hidden;
@@ -402,4 +407,39 @@ input:focus {
 .spot:hover .tooltip-text {
     visibility: visible;
     opacity: 1;
+}
+
+/* Spinner */
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border-left-color: #09f;
+    margin: 2rem auto;
+
+    animation: spin 1s ease infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.logout-button {
+    display: block;
+    margin: 2rem auto;
+    width: fit-content;
+    background: #6c757d;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.logout-button:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }

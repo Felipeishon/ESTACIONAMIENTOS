@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 const config = require('./config');
 
 const dbPath = path.join(__dirname, 'db.json');
+const usersPath = path.join(__dirname, 'users.json');
 
 // A more robust queue-based semaphore to prevent race conditions on file access.
 let isLockBusy = false;
@@ -38,13 +39,24 @@ const releaseLock = () => {
 const readReservations = async () => {
   try {
     const dbData = await fs.readFile(dbPath, 'utf8');
-    return JSON.parse(dbData).reservations;
+    // Handle empty file gracefully
+    if (!dbData.trim()) {
+      return [];
+    }
+    const parsedData = JSON.parse(dbData);
+    // Ensure the 'reservations' property is an array
+    return Array.isArray(parsedData.reservations) ? parsedData.reservations : [];
   } catch (error) {
     // If the file doesn't exist or is empty, it's not an error, just start fresh.
     if (error.code === 'ENOENT') {
       return [];
     }
-    // For other errors, re-throw to be handled by the route handler.
+    // If it's a JSON parsing error, log it and return empty to prevent a crash.
+    if (error instanceof SyntaxError) {
+      console.error(`[readReservations] Error parsing db.json: ${error.message}. Returning empty array.`);
+      return [];
+    }
+    // For other unexpected errors, re-throw to be handled by the route handler.
     throw error;
   }
 };
@@ -94,45 +106,70 @@ const isHoliday = (date) => {
 };
 
 const generateGridForDate = async (date, reservationsArray = null) => {
-  // This function can optionally receive the reservations array to avoid re-reading the file.
   const allReservations = reservationsArray || await readReservations();
-
   const requestDate = new Date(`${date}T00:00:00`);
   if (isNaN(requestDate.getTime())) {
-    // This should be caught by route validation, but as a safeguard:
     throw new Error('Invalid date format provided to generateGridForDate.');
   }
 
-  const reservationsForDate = allReservations.filter(r => r.date === date);
-
+  // 1. Create the initial grid with all slots free
   const spots = Array.from({ length: config.numberOfSpots }, (_, i) => {
     const spotId = i + 1;
     const spotName = config.spotNames[i] || `Espacio ${spotId}`;
-    const reservationsForSpot = reservationsForDate.filter(r => r.spotId === spotId);
     const timeSlots = [];
-
     for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const slotStart = new Date(requestDate);
         slotStart.setHours(hour, minute, 0, 0);
         const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000);
-
-        const reservationInfo = reservationsForSpot.find(r => {
-          const existingStart = new Date(`${r.date}T${r.startTime}`);
-          const existingEnd = new Date(`${r.date}T${r.endTime}`);
-          return isTimeOverlap(slotStart, slotEnd, existingStart, existingEnd);
-        });
-
         timeSlots.push({
           startTime: slotStart.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
           endTime: slotEnd.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
-          isReserved: !!reservationInfo,
-          reservedBy: reservationInfo ? (reservationInfo.name || reservationInfo.email || reservationInfo.user) : null,
+          isReserved: false,
+          reservedBy: null,
         });
       }
     }
     return { id: spotId, name: spotName, timeSlots };
   });
+
+  // 2. Create a lookup map for faster access
+  const spotsMap = new Map(spots.map(spot => [spot.id, spot]));
+
+  // 3. Filter reservations for the given date and "paint" them onto the grid
+  const reservationsForDate = allReservations.filter(r => r.date === date);
+
+  for (const reservation of reservationsForDate) {
+    // Defensive checks for malformed reservation objects
+    if (!reservation || typeof reservation.spotId !== 'number' || !reservation.startTime || !reservation.endTime) {
+      console.warn(`[generateGridForDate] Skipping malformed or incomplete reservation: ${JSON.stringify(reservation)}`);
+      continue;
+    }
+
+    const spot = spotsMap.get(reservation.spotId);
+    if (!spot) {
+      console.warn(`[generateGridForDate] Skipping reservation for non-existent spotId: ${reservation.spotId}`);
+      continue;
+    }
+
+    const [startHour, startMinute] = reservation.startTime.split(':').map(Number);
+    const [endHour, endMinute] = reservation.endTime.split(':').map(Number);
+
+    if (isNaN(startHour) || isNaN(startMinute) || isNaN(endHour) || isNaN(endMinute)) {
+      console.warn(`[generateGridForDate] Skipping reservation with invalid time format: ${JSON.stringify(reservation)}`);
+      continue;
+    }
+
+    const startIndex = startHour * 2 + (startMinute / 30);
+    const endIndex = endHour * 2 + (endMinute / 30);
+
+    for (let i = startIndex; i < endIndex; i++) {
+      if (spot.timeSlots[i]) {
+        spot.timeSlots[i].isReserved = true;
+        spot.timeSlots[i].reservedBy = reservation.name || reservation.email || reservation.user;
+      }
+    }
+  }
 
   console.log(`[generateGridForDate] Generated grid for ${date} with ${allReservations.length} total reservations.`);
   return spots;
