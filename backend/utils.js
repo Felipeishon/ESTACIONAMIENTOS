@@ -5,7 +5,7 @@ const nodemailer = require('nodemailer');
 const config = require('./config');
 
 const dbPath = path.join(__dirname, 'db.json');
-const usersPath = path.join(__dirname, 'users.json');
+
 
 // A more robust queue-based semaphore to prevent race conditions on file access.
 let isLockBusy = false;
