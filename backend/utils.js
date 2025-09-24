@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 const config = require('./config');
 
 const dbPath = path.join(__dirname, 'db.json');
+const usersPath = path.join(__dirname, 'users.json');
 
 
 // A more robust queue-based semaphore to prevent race conditions on file access.
@@ -64,6 +65,37 @@ const readReservations = async () => {
 // Helper function to write to db.json with concurrency control
 const writeReservations = async (reservations) => {
   await fs.writeFile(dbPath, JSON.stringify({ reservations }, null, 2), 'utf8');
+};
+
+// Helper function to read from users.json
+const readUsers = async () => {
+  try {
+    const usersData = await fs.readFile(usersPath, 'utf8');
+    // Handle empty file gracefully
+    if (!usersData.trim()) {
+      return [];
+    }
+    const parsedData = JSON.parse(usersData);
+    // Ensure the 'users' property is an array
+    return Array.isArray(parsedData.users) ? parsedData.users : [];
+  } catch (error) {
+    // If the file doesn't exist or is empty, it's not an error, just start fresh.
+    if (error.code === 'ENOENT') {
+      return [];
+    }
+    // If it's a JSON parsing error, log it and return empty to prevent a crash.
+    if (error instanceof SyntaxError) {
+      console.error(`[readUsers] Error parsing users.json: ${error.message}. Returning empty array.`);
+      return [];
+    }
+    // For other unexpected errors, re-throw to be handled by the route handler.
+    throw error;
+  }
+};
+
+// Helper function to write to users.json with concurrency control
+const writeUsers = async (users) => {
+  await fs.writeFile(usersPath, JSON.stringify({ users }, null, 2), 'utf8');
 };
 
 // Helper function to check for time overlap
@@ -292,9 +324,65 @@ const sendReservationCancellationEmail = async (reservation) => {
   }
 };
 
+const sendPasswordResetEmail = async (user, token) => {
+  if (!config.email.host || !config.email.user || !config.email.pass) {
+    console.warn('[sendPasswordResetEmail] Email service is not configured. Skipping email notification.');
+    // In a real app, you might want to throw an error here if email is critical
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.email.host,
+    port: config.email.port,
+    secure: config.email.secure,
+    auth: {
+      user: config.email.user,
+      pass: config.email.pass,
+    },
+  });
+
+  // The reset URL the user will click
+  const resetUrl = `http://192.168.70.12:8000/#reset-password?token=${token}`;
+
+  const mailOptions = {
+    from: config.email.from,
+    to: user.email,
+    subject: 'Restablecimiento de Contraseña para tu Cuenta',
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+        <div style="max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+          <h1 style="color: #007bff; font-size: 24px;">Solicitud de Restablecimiento de Contraseña</h1>
+          <p>Hola ${user.name},</p>
+          <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta. Si no hiciste esta solicitud, puedes ignorar este correo electrónico de forma segura.</p>
+          <p>Para restablecer tu contraseña, haz clic en el siguiente enlace:</p>
+          <p style="text-align: center; margin: 20px 0;">
+            <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Restablecer Contraseña</a>
+          </p>
+          <p>Este enlace de restablecimiento de contraseña caducará en 1 hora.</p>
+          <p>Si tienes problemas para hacer clic en el botón, copia y pega la siguiente URL en tu navegador:</p>
+          <p style="word-break: break-all; font-size: 12px;">${resetUrl}</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="font-size: 12px; color: #888;">Este es un correo electrónico automático, por favor no respondas a este mensaje.</p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[sendPasswordResetEmail] Password reset email sent successfully to ${user.email}: ${info.messageId}`);
+  } catch (error) {
+    console.error(`[sendPasswordResetEmail] Error sending password reset email to ${user.email}:`, error);
+    // Depending on the app's needs, you might want to throw an error to let the calling function know.
+    // For now, we just log it.
+  }
+};
+
 module.exports = {
   readReservations,
   writeReservations,
+  readUsers,
+  writeUsers,
   isTimeOverlap,
   isHoliday,
   acquireLock,
@@ -303,4 +391,5 @@ module.exports = {
   getMyActiveReservations,
   sendReservationConfirmationEmail,
   sendReservationCancellationEmail,
+  sendPasswordResetEmail,
 };

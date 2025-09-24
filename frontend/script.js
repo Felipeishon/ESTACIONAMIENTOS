@@ -1,183 +1,226 @@
-import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, getConfig } from './api.js';
-import { displayReservations, resetForm } from './ui.js';
+import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, login, register, forgotPassword, resetPassword } from './api.js';
+import { displayReservations, showView } from './ui.js';
 import { showToast } from './toast.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos del DOM
-    const mainElement = document.querySelector('main');
-    const emailSection = document.getElementById('emailSection');
-    const emailForm = document.getElementById('emailForm');
-    const emailInput = document.getElementById('email');
+    const authForm = document.getElementById('authForm');
     const userNameInput = document.getElementById('userName');
-    const reservationSection = document.getElementById('reservationSection');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const logoutButton = document.getElementById('logoutButton');
+    const themeToggleButton = document.getElementById('theme-toggle');
+    const registerButton = document.getElementById('registerButton');
+
+    const reservationHeading = document.getElementById('reservation-heading');
     const parkingGrid = document.getElementById('parkingGrid');
     const reservationsList = document.getElementById('reservationsList');
     const gridDateInput = document.getElementById('gridDate');
-    const reservationHeading = document.getElementById('reservation-heading');
     const deleteAllButton = document.getElementById('deleteAllButton');
 
     const reservationModal = document.getElementById('reservationModal');
-    const modalCloseBtn = reservationModal.querySelector('.close');    
+    const modalCloseBtn = reservationModal.querySelector('.close');
     const startTimeInput = document.getElementById('startTime');
     const endTimeInput = document.getElementById('endTime');
     const confirmModalReservationBtn = document.getElementById('confirmModalReservation');
 
+    // Elementos para restablecer contraseña
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    const backToLoginButton = document.getElementById('backToLogin');
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+    const forgotEmailInput = document.getElementById('forgotEmail');
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+    const resetTokenInput = document.getElementById('resetToken');
+    const newPasswordInput = document.getElementById('newPassword');
+    const confirmPasswordInput = document.getElementById('confirmPassword');
+
     // Estado de la aplicación
     const appState = {
-        allowedEmailDomain: '',
-        userEmail: '',
-        userName: '',
-        adminPassword: null,
+        token: null,
+        user: null,
         selectedSpotId: null,
         selectedDate: null,
         allTimeSlotsForSpot: [],
     };
-    const ADMIN_EMAIL = 'reservas.estacionamiento.iansa@gmail.com';
 
-    // --- Lógica de Sesión ---
-    function saveSession(data) {
-        sessionStorage.setItem('parkingUser', JSON.stringify(data));
-    }
+    // --- Lógica de Tema ---
+    const applyTheme = (theme) => {
+        document.body.classList.toggle('dark-theme', theme === 'dark');
+    };
 
-    function loadSession() {
-        const userData = sessionStorage.getItem('parkingUser');
-        if (userData) {
-            return JSON.parse(userData);
+    const toggleTheme = () => {
+        const newTheme = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
+        localStorage.setItem('theme', newTheme);
+        applyTheme(newTheme);
+    };
+
+    // --- Lógica de Autenticación y Routing ---
+    const decodeToken = (token) => {
+        try {
+            return JSON.parse(atob(token.split('.')[1]));
+        } catch (e) {
+            return null;
         }
-        return null;
-    }
+    };
 
-    function clearSession() {
-        sessionStorage.removeItem('parkingUser');
-        // Recargar la página para volver al formulario de login
-        window.location.reload();
-    }
-
-    function createLogoutButton() {
-        const logoutButton = document.createElement('button');
-        logoutButton.textContent = 'Cerrar Sesión';
-        logoutButton.className = 'logout-button'; // Puedes añadir estilos para este botón
-        logoutButton.addEventListener('click', clearSession);
-        mainElement.appendChild(logoutButton);
-    }
-
-
-    // --- INICIALIZACIÓN ---
-    getConfig()
-        .then(config => {
-            appState.allowedEmailDomain = config.allowedEmailDomain;
-            // Se elimina la validación de patrón HTML5 para permitir el email de admin.
-            // La validación de dominio se hace en el evento de submit.
-            emailInput.title = `Por favor, use una dirección de correo electrónico de ${appState.allowedEmailDomain}`;
-        })
-        .catch(error => {
-            handleError(error, 'No se pudo cargar la configuración del servidor.');
-        });
-
-    // Al cargar la página, intentar restaurar la sesión
-    const savedUser = loadSession();
-    if (savedUser) {
-        appState.userEmail = savedUser.email;
-        appState.userName = savedUser.name;
-        appState.adminPassword = savedUser.adminPassword;
-
-        emailSection.style.display = 'none';
-        reservationSection.style.display = 'block';
-        reservationHeading.textContent = `Reservar Estacionamiento (${savedUser.adminPassword ? 'Admin' : appState.userName})`;
-        deleteAllButton.style.display = appState.adminPassword ? 'block' : 'none';
-
-        createLogoutButton();
-        initializeGridAndReservations(!!appState.adminPassword);
-    }
-
-
-    // --- MANEJADORES DE EVENTOS ---
-    emailForm.addEventListener('submit', (event) => {
+    const handleLogin = async (event) => {
         event.preventDefault();
         const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (!email || !password) {
+            return showToast('Por favor, ingrese su correo y contraseña.');
+        }
+
+        try {
+            const data = await login(email, password);
+            localStorage.setItem('token', data.token);
+            showToast('Inicio de sesión exitoso.');
+            handleRouteChange(); // Redirige a la vista principal
+        } catch (error) {
+            handleError(error);
+        }
+    };
+
+    const handleRegister = async () => {
         const name = userNameInput.value.trim();
+        const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
 
-        // Flujo de Administrador
-        if (email === ADMIN_EMAIL && name === ADMIN_EMAIL) {
-            const password = prompt('Ingrese la contraseña de administrador:');
-            if (password) {
-                appState.adminPassword = password;
-                appState.userEmail = email;
-                appState.userName = name;
-                
-                saveSession({ email: appState.userEmail, name: appState.userName, adminPassword: appState.adminPassword });
-                showToast('Modo administrador activado.');
-                deleteAllButton.style.display = 'block';
-                emailSection.style.display = 'none';
-                reservationSection.style.display = 'block';
-                reservationHeading.textContent = `Reservar Estacionamiento (Admin)`;
-                createLogoutButton();
-                initializeGridAndReservations(true); // Iniciar como admin
+        if (!name || !email || !password) {
+            return showToast('Por favor, complete todos los campos para registrarse.');
+        }
+
+        try {
+            await register(name, email, password);
+            showToast('Registro exitoso. Ahora puede iniciar sesión.');
+            authForm.reset();
+        } catch (error) {
+            handleError(error);
+        }
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        appState.token = null;
+        appState.user = null;
+        window.location.hash = '';
+        handleRouteChange();
+        window.location.reload(); // Forzar recarga para limpiar estado complejo
+    };
+
+    const handleForgotPassword = async (event) => {
+        event.preventDefault();
+        const email = forgotEmailInput.value.trim();
+        if (!email) return showToast('Por favor, ingresa tu correo electrónico.');
+
+        try {
+            const result = await forgotPassword(email);
+            showToast(result.message);
+            forgotPasswordForm.reset();
+            showView('authSection');
+        } catch (error) {
+            handleError(error);
+        }
+    };
+
+    const handleResetPassword = async (event) => {
+        event.preventDefault();
+        const token = resetTokenInput.value;
+        const password = newPasswordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+
+        if (!password || password.length < 6) {
+            return showToast('La contraseña debe tener al menos 6 caracteres.');
+        }
+        if (password !== confirmPassword) {
+            return showToast('Las contraseñas no coinciden.');
+        }
+
+        try {
+            const result = await resetPassword(token, password);
+            showToast(result.message);
+            resetPasswordForm.reset();
+            window.location.hash = ''; // Limpiar hash para volver al login
+            handleRouteChange();
+        } catch (error) {
+            handleError(error);
+        }
+    };
+
+    const handleRouteChange = () => {
+        const hash = window.location.hash;
+
+        if (hash.startsWith('#reset-password?token=')) {
+            const token = hash.substring('#reset-password?token='.length);
+            resetTokenInput.value = token;
+            showView('resetPasswordView');
+        } else {
+            const token = localStorage.getItem('token');
+            if (token) {
+                appState.token = token;
+                appState.user = decodeToken(token);
+                logoutButton.style.display = 'block';
+                reservationHeading.textContent = `Reservar Estacionamiento (${appState.user.name})`;
+                showView('reservationSection');
+                initializeGridAndReservations();
+            } else {
+                appState.token = null;
+                appState.user = null;
+                logoutButton.style.display = 'none';
+                showView('authSection');
             }
-            return; // Terminar el flujo aquí para el admin
         }
+    };
 
-        // Flujo de Usuario Normal
-        const nameParts = name.split(' ').filter(part => part.length > 0);
-        if (name.length < 5 || nameParts.length < 2) {
-            showToast('Por favor, ingrese un nombre y apellido válidos.');
-            return;
-        }
+    // --- INICIALIZACIÓN ---
+    const initializeApp = () => {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) applyTheme(savedTheme);
+        
+        handleRouteChange(); // Punto de entrada principal para la lógica de vistas
+    };
 
-        const emailRegex = /^[^@]+@[^@]+\.[^@]+$/;
-        if (!emailRegex.test(email)) {
-            showToast('Por favor, ingrese un correo electrónico válido.');
-            return;
-        }
+    // --- MANEJADORES DE EVENTOS ---
+    themeToggleButton.addEventListener('click', toggleTheme);
+    authForm.addEventListener('submit', handleLogin);
+    registerButton.addEventListener('click', handleRegister);
+    logoutButton.addEventListener('click', handleLogout);
+    window.addEventListener('hashchange', handleRouteChange);
 
-        if (!email.endsWith(appState.allowedEmailDomain)) {
-            showToast(`Por favor, use una dirección de correo electrónico de ${appState.allowedEmailDomain}`);
-            return;
-        }
-
-        // Si es un usuario válido, proceder
-        appState.userEmail = email;
-        appState.userName = name;
-        appState.adminPassword = null; // Asegurarse que no está en modo admin
-        deleteAllButton.style.display = 'none';
-        saveSession({ email: appState.userEmail, name: appState.userName, adminPassword: null });
-
-        emailSection.style.display = 'none';
-        reservationSection.style.display = 'block';
-        reservationHeading.textContent = `Reservar Estacionamiento (${appState.userName})`;
-        createLogoutButton();
-        initializeGridAndReservations(false); // Iniciar como no-admin
+    // Navegación para restablecer contraseña
+    forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showView('forgotPasswordView');
     });
+    backToLoginButton.addEventListener('click', () => showView('authSection'));
+    forgotPasswordForm.addEventListener('submit', handleForgotPassword);
+    resetPasswordForm.addEventListener('submit', handleResetPassword);
 
-    deleteAllButton.addEventListener('click', async () => {
-        if (!appState.adminPassword) return;
-        const confirmation = confirm('¿Está seguro de que desea eliminar TODAS las reservas? Esta acción no se puede deshacer.');
-        if (confirmation) {
+    // Eventos de la aplicación principal
+    gridDateInput.addEventListener('change', () => loadParkingGrid(gridDateInput.value));
+    reservationsList.addEventListener('click', async (event) => {
+        if (event.target.classList.contains('delete-btn')) {
+            const reservationId = event.target.dataset.reservationId;
             try {
-                await deleteAllReservations(appState.adminPassword);
-                showToast('Todas las reservas han sido eliminadas.');
-                initializeGridAndReservations(true);
+                const result = await deleteReservation(reservationId);
+                showToast('Reserva cancelada exitosamente!');
+                gridDateInput.value = result.gridDate;
+                loadAndDisplayReservations();
+                redrawParkingGrid(result.gridState);
             } catch (error) {
                 handleError(error);
             }
         }
     });
 
-    gridDateInput.addEventListener('change', () => {
-        loadParkingGrid(gridDateInput.value);
-    });
-
-    reservationsList.addEventListener('click', async (event) => {
-        if (event.target.classList.contains('delete-btn')) {
-            const reservationId = event.target.dataset.reservationId;
-            const isAdmin = !!appState.adminPassword;
-
+    deleteAllButton.addEventListener('click', async () => {
+        if (appState.user?.role !== 'admin') return;
+        if (confirm('¿Está seguro de que desea eliminar TODAS las reservas? Esta acción no se puede deshacer.')) {
             try {
-                const result = await deleteReservation(reservationId, appState.adminPassword, appState.userEmail);
-                showToast('Reserva cancelada exitosamente!');
-                gridDateInput.value = result.gridDate;
-                loadAndDisplayReservations(isAdmin);
-                redrawParkingGrid(result.gridState);
+                await deleteAllReservations();
+                showToast('Todas las reservas han sido eliminadas.');
+                initializeGridAndReservations();
             } catch (error) {
                 handleError(error);
             }
@@ -206,22 +249,26 @@ document.addEventListener('DOMContentLoaded', () => {
         select.appendChild(option);
     }
 
-    // --- FUNCIONES PRINCIPALES ---
-    /**
-     * Inicializa la grilla de estacionamientos y la lista de reservaciones.
-     * @param {boolean} isAdmin - Indica si el usuario es administrador.
-     */
-    function initializeGridAndReservations(isAdmin = false) {
-        const today = new Date().toISOString().split('T')[0];
-        gridDateInput.value = today;
-        loadParkingGrid(today);
-        loadAndDisplayReservations(isAdmin);
+    // --- FUNCIONES PRINCIPALES DE LA APP ---
+    function initializeGridAndReservations() {
+        if (appState.user?.role === 'admin') {
+            deleteAllButton.style.display = 'block';
+        }
+        const today = new Date();
+        const todayISO = today.toISOString().split('T')[0];
+
+        const maxDate = new Date(today);
+        maxDate.setDate(today.getDate() + 14);
+        const maxDateISO = maxDate.toISOString().split('T')[0];
+
+        gridDateInput.setAttribute('min', todayISO);
+        gridDateInput.setAttribute('max', maxDateISO);
+        gridDateInput.value = todayISO; // Set default to today
+
+        loadParkingGrid(todayISO);
+        loadAndDisplayReservations();
     }
 
-    /**
-     * Carga y muestra los estacionamientos para una fecha dada.
-     * @param {string} date - Fecha en formato YYYY-MM-DD
-     */
     async function loadParkingGrid(date) {
         parkingGrid.innerHTML = '<div class="spinner"></div>';
         try {
@@ -233,10 +280,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Dibuja o redibuja la grilla de estacionamientos.
-     * @param {Array<object>} spots - Array de objetos de estacionamiento.
-     */
     function redrawParkingGrid(spots) {
         parkingGrid.innerHTML = '';
         if (!spots || spots.length === 0) {
@@ -266,26 +309,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const reservationsByUser = reservedSlots.reduce((acc, slot) => {
                     const user = slot.reservedBy || 'Desconocido';
-                    if (!acc[user]) {
-                        acc[user] = [];
-                    }
+                    if (!acc[user]) acc[user] = [];
                     acc[user].push(slot);
                     return acc;
                 }, {});
 
                 Object.entries(reservationsByUser).forEach(([user, slots]) => {
-                    const timeBlocks = [];
-                    let currentBlock = null;
-                    slots.forEach(slot => {
-                        if (currentBlock && currentBlock.endTime === slot.startTime) {
-                            currentBlock.endTime = slot.endTime;
+                    const timeBlocks = slots.reduce((blocks, slot) => {
+                        if (blocks.length > 0 && blocks[blocks.length - 1].endTime === slot.startTime) {
+                            blocks[blocks.length - 1].endTime = slot.endTime;
                         } else {
-                            if (currentBlock) timeBlocks.push(currentBlock);
-                            currentBlock = { startTime: slot.startTime, endTime: slot.endTime };
+                            blocks.push({ startTime: slot.startTime, endTime: slot.endTime });
                         }
-                    });
-                    if (currentBlock) timeBlocks.push(currentBlock);
-
+                        return blocks;
+                    }, []);
                     const timeRanges = timeBlocks.map(block => `${block.startTime}-${block.endTime}`);
                     tooltipText += `- ${user} (${timeRanges.join(', ')})\n`;
                 });
@@ -308,35 +345,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /**
-     * Maneja la confirmación de una reserva.
-     */
     async function handleConfirmReservation() {
         const reservationData = {
             spotId: appState.selectedSpotId,
             date: appState.selectedDate,
             startTime: startTimeInput.value,
             endTime: endTimeInput.value,
-            name: appState.userName,
-            email: appState.userEmail,
         };
 
         try {
             const result = await createReservation(reservationData);
             showToast('Reserva creada exitosamente!');
             closeModal();
-            displayReservations(result.myReservations, !!appState.adminPassword, appState.userEmail);
+            displayReservations(result.myReservations, appState.user?.role === 'admin', appState.user?.email);
             redrawParkingGrid(result.gridState);
         } catch (error) {
             handleError(error);
         }
     }
 
-    /**
-     * Abre el modal de reserva para un estacionamiento específico.
-     * @param {number} spotId - ID del estacionamiento.
-     * @param {string} spotName - Nombre del estacionamiento.
-     */
     function openModal(spot) {
         appState.selectedSpotId = spot.id;
         appState.selectedDate = gridDateInput.value;
@@ -346,73 +373,39 @@ document.addEventListener('DOMContentLoaded', () => {
         reservationModal.style.display = 'block';
     }
 
-    /**
-     * Cierra el modal de reserva.
-     */
-    /**
-     * Cierra el modal de reserva.
-     */
     function closeModal() {
         reservationModal.style.display = 'none';
     }
 
-    /**
-     * Popula los selects de hora de inicio y fin para un estacionamiento y fecha específicos.
-     * @param {number} spotId - ID del estacionamiento.
-     * @param {string} date - Fecha en formato YYYY-MM-DD.
-     */
-    /**
-     * Popula los selects de hora de inicio y fin para un estacionamiento y fecha específicos.
-     * @param {number} spotId - ID del estacionamiento.
-     * @param {string} date - Fecha en formato YYYY-MM-DD.
-     */
     function populateTimeSelects(spot, date) {
-        startTimeInput.innerHTML = '<option>Cargando...</option>';
-        endTimeInput.innerHTML = '<option>Cargando...</option>';
-        startTimeInput.disabled = true;
-        endTimeInput.disabled = true;
-
-        if (!date || !spot) {
-            startTimeInput.innerHTML = '';
-            endTimeInput.innerHTML = '';
-            return;
-        }
-
         startTimeInput.innerHTML = '';
         endTimeInput.innerHTML = '';
 
-        appState.allTimeSlotsForSpot = spot.timeSlots;
-        let availableStartSlots = appState.allTimeSlotsForSpot.filter(slot => !slot.isReserved);
+        if (!date || !spot) return;
 
-        const today = new Date().toISOString().split('T')[0];
-        if (date === today) {
-            const now = new Date();
-            const currentTime = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        appState.allTimeSlotsForSpot = spot.timeSlots; // Bug fix: This line was missing
+        let availableStartSlots = spot.timeSlots.filter(slot => !slot.isReserved);
+
+        if (date === new Date().toISOString().split('T')[0]) {
+            const currentTime = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
             availableStartSlots = availableStartSlots.filter(slot => slot.startTime >= currentTime);
         }
+
+        confirmModalReservationBtn.disabled = availableStartSlots.length === 0;
+        startTimeInput.disabled = availableStartSlots.length === 0;
+        endTimeInput.disabled = true;
 
         if (availableStartSlots.length === 0) {
             addOption(startTimeInput, 'No hay horarios disponibles', '', true);
             addOption(endTimeInput, 'No hay horarios disponibles', '', true);
-            confirmModalReservationBtn.disabled = true;
             return;
         }
-        confirmModalReservationBtn.disabled = false;
 
         addOption(startTimeInput, 'Seleccione...', '', true, true);
-
-        availableStartSlots.forEach(slot => {
-            addOption(startTimeInput, `${slot.startTime}`, slot.startTime);
-        });
-        startTimeInput.disabled = false;
-
+        availableStartSlots.forEach(slot => addOption(startTimeInput, slot.startTime, slot.startTime));
         addOption(endTimeInput, 'Seleccione entrada', '', true, true);
-        endTimeInput.disabled = true;
     }
 
-    /**
-     * Actualiza las opciones del select de hora de fin basándose en la hora de inicio seleccionada.
-     */
     function updateEndTimeOptions() {
         const selectedStartTime = startTimeInput.value;
         endTimeInput.innerHTML = '';
@@ -441,24 +434,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadAndDisplayReservations(isAdmin = false) {
+    async function loadAndDisplayReservations() {
         try {
             const reservations = await getReservations();
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            let reservationsToDisplay;
-            if (isAdmin) {
-                reservationsToDisplay = reservations.filter(r => new Date(`${r.date}T00:00:00`) >= today);
-            } else {
-                reservationsToDisplay = reservations.filter(r => {
-                    const reservationDate = new Date(`${r.date}T00:00:00`);
-                    return r.email === appState.userEmail && reservationDate >= today;
-                });
-            }
-            displayReservations(reservationsToDisplay, isAdmin, appState.userEmail);
+            const reservationsToDisplay = appState.user?.role === 'admin'
+                ? reservations.filter(r => new Date(`${r.date}T00:00:00`) >= today)
+                : reservations.filter(r => r.email === appState.user?.email && new Date(`${r.date}T00:00:00`) >= today);
+            
+            displayReservations(reservationsToDisplay, appState.user?.role === 'admin', appState.user?.email);
         } catch (error) {
             handleError(error);
         }
     }
+
+    initializeApp();
 });

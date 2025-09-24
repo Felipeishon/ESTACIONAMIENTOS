@@ -1,8 +1,0 @@
-- [x] Remove name input from frontend/index.html
-- [x] Update frontend/script.js to remove name handling and send only email
-- [x] Update backend/routes/reservations.js to remove userName requirement and storage
-- [x] Update frontend/ui.js to display email instead of name
-- [x] Update backend/tests/api.test.js to use email instead of user
-- [x] Set modal date to today by default
-- [x] Change time selection to digital clock (time inputs)
-- [x] Translate backend error messages to Spanish

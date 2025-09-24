@@ -15,7 +15,7 @@ const config = {
     logLevel: process.env.LOG_LEVEL || 'info',
     allowedOrigins: process.env.ALLOWED_ORIGINS ?
         process.env.ALLOWED_ORIGINS.split(',') :
-        ['http://localhost:3000', 'http://localhost:8000'],
+        ['http://localhost:3000', 'http://localhost:8000', 'http://192.168.70.12:8000'],
     dbPath: process.env.DB_PATH || './db.json',
     allowedEmailDomain: `@${process.env.ALLOWED_EMAIL_DOMAIN || 'gmail.com'}`,
     apiNinjasKey: process.env.API_NINJAS_KEY || 'YOUR_API_KEY',
@@ -28,8 +28,8 @@ const config = {
         pass: process.env.EMAIL_PASS,
         from: process.env.EMAIL_FROM || `"Sistema de Reservas" <${process.env.EMAIL_USER}>`
     },
-    jwtSecret: process.env.JWT_SECRET || 'a-very-secret-key',
-    adminPassword: process.env.ADMIN_PASSWORD || 'admin123'
+    jwtSecret: process.env.JWT_SECRET,
+    adminPassword: process.env.ADMIN_PASSWORD
 };
 
 module.exports = config;

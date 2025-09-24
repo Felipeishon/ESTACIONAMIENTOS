@@ -9,15 +9,19 @@
 <body>
     <header>
         <h1>Sistema de Reservas de Estacionamiento</h1>
+        <div class="header-controls">
+            <button id="theme-toggle">Cambiar Tema</button>
+            <button id="logoutButton" style="display: none;">Cerrar Sesión</button>
+        </div>
     </header>
 
     <main role="main">
-        <section id="emailSection" aria-labelledby="email-heading">
-            <h2 id="email-heading">Ingrese sus datos</h2>
-            <form id="emailForm" role="form" aria-label="Formulario de datos de usuario">
+        <section id="authSection" aria-labelledby="auth-heading">
+            <h2 id="auth-heading">Iniciar Sesión o Registrarse</h2>
+            <form id="authForm" role="form" aria-label="Formulario de autenticación">
                 <div class="form-group">
-                    <label for="userName">Nombre y Apellido:</label>
-                    <input type="text" id="userName" required aria-describedby="name-help" aria-required="true" minlength="5" title="Por favor, ingrese su nombre y al menos un apellido.">
+                    <label for="userName">Nombre y Apellido (para registrarse):</label>
+                    <input type="text" id="userName" aria-describedby="name-help" minlength="5" title="Por favor, ingrese su nombre y al menos un apellido.">
                     <span id="name-help" class="sr-only">Ingrese su nombre completo</span>
                 </div>
                 <div class="form-group">
@@ -25,8 +29,42 @@
                     <input type="email" id="email" required aria-describedby="email-help" aria-required="true">
                     <span id="email-help" class="sr-only">Ingrese su dirección de correo electrónico</span>
                 </div>
-                <button type="submit" aria-describedby="submit-email-help">Continuar</button>
-                <span id="submit-email-help" class="sr-only">Haga clic para continuar con la reserva</span>
+                <div class="form-group">
+                    <label for="password">Contraseña:</label>
+                    <input type="password" id="password" required aria-required="true">
+                </div>
+                <button type="submit" id="loginButton">Iniciar Sesión</button>
+                <button type="button" id="registerButton">Registrarse</button>
+                <p class="forgot-password-link"><a href="#" id="forgotPasswordLink">¿Olvidaste tu contraseña?</a></p>
+            </form>
+        </section>
+
+        <section id="forgotPasswordView" style="display: none;" aria-labelledby="forgot-password-heading">
+            <h2 id="forgot-password-heading">Restablecer Contraseña</h2>
+            <p>Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.</p>
+            <form id="forgotPasswordForm" role="form" aria-label="Formulario para restablecer contraseña">
+                <div class="form-group">
+                    <label for="forgotEmail">Email:</label>
+                    <input type="email" id="forgotEmail" required aria-required="true">
+                </div>
+                <button type="submit">Enviar Enlace</button>
+                <button type="button" id="backToLogin">Volver a Iniciar Sesión</button>
+            </form>
+        </section>
+
+        <section id="resetPasswordView" style="display: none;" aria-labelledby="reset-password-heading">
+            <h2 id="reset-password-heading">Crear Nueva Contraseña</h2>
+            <form id="resetPasswordForm" role="form" aria-label="Formulario para crear nueva contraseña">
+                <input type="hidden" id="resetToken">
+                <div class="form-group">
+                    <label for="newPassword">Nueva Contraseña:</label>
+                    <input type="password" id="newPassword" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirmar Nueva Contraseña:</label>
+                    <input type="password" id="confirmPassword" required minlength="6">
+                </div>
+                <button type="submit">Restablecer Contraseña</button>
             </form>
         </section>
 
@@ -70,10 +108,10 @@
         </section>
     </main>
 
-    <script type="module" src="api.js"></script>
-    <script type="module" src="ui.js"></script>
-    <script type="module" src="toast.js"></script>
-    <script type="module" src="script.js"></script>
+    <script type="module" src="api.js" defer></script>
+    <script type="module" src="ui.js" defer></script>
+    <script type="module" src="toast.js" defer></script>
+    <script type="module" src="script.js" defer></script>
 
     <div id="toast"></div>
 </body>

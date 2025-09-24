@@ -54,8 +54,35 @@ export function resetForm() {
     const reservationSection = document.getElementById('reservationSection');
     const parkingGrid = document.getElementById('parkingGrid');
 
-    emailForm.reset();
     emailSection.style.display = 'block';
     reservationSection.style.display = 'none';
     parkingGrid.innerHTML = '';
+}
+
+export function showLoginForm() {
+    const userNameInput = document.getElementById('userName');
+    const registerButton = document.getElementById('registerButton');
+
+    if (userNameInput) {
+        userNameInput.parentElement.style.display = 'none';
+    }
+    if (registerButton) {
+        registerButton.style.display = 'none';
+    }
+}
+
+const allViews = ['authSection', 'reservationSection', 'forgotPasswordView', 'resetPasswordView'];
+
+export function showView(viewId) {
+    allViews.forEach(id => {
+        const view = document.getElementById(id);
+        if (view) {
+            view.style.display = 'none';
+        }
+    });
+
+    const activeView = document.getElementById(viewId);
+    if (activeView) {
+        activeView.style.display = 'block';
+    }
 }

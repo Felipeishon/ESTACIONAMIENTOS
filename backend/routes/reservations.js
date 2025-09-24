@@ -1,23 +1,25 @@
 const router = require('express').Router();
-const { randomUUID } = require('crypto');
-const { readReservations, writeReservations, isTimeOverlap, isHoliday, acquireLock, releaseLock, sendReservationConfirmationEmail, sendReservationCancellationEmail, generateGridForDate, getMyActiveReservations } = require('../utils');
 const config = require('../config');
+const { randomUUID } = require('crypto');
+const {
+    readReservations,
+    writeReservations,
+    isTimeOverlap,
+    isHoliday,
+    acquireLock,
+    releaseLock,
+    generateGridForDate,
+    getMyActiveReservations,
+    sendReservationConfirmationEmail,
+    sendReservationCancellationEmail,
+} = require('../utils');
+const { authMiddleware, checkRole } = require('../middleware/authMiddleware');
 
 const NUMBER_OF_SPOTS = config.numberOfSpots;
 const SPOT_NAMES = config.spotNames;
 
-// Middleware de autenticación de administrador (solo para rutas que son exclusivamente de admin)
-const adminAuth = (req, res, next) => {
-  const adminPassword = req.headers['x-admin-password'];
-  if (!adminPassword || adminPassword !== config.adminPassword) {
-    console.warn('[Admin Auth] Failed authentication attempt.');
-    return res.status(403).json({ message: 'Acceso denegado: se requiere contraseña de administrador válida.' });
-  }
-  next();
-};
-
 // GET /api/reservations
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
     const reservations = await readReservations();
     res.json(reservations);
@@ -28,15 +30,62 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/reservations
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   await acquireLock();
   try {
-    const { spotId, date, startTime, endTime, email, name } = req.body;
-    if (!spotId || !date || !startTime || !endTime || !email || !name) {
+    const { spotId, date, startTime, endTime } = req.body;
+    const { email, name } = req.user; // Get user info from token
+
+    if (!spotId || !date || !startTime || !endTime) {
       return res.status(400).json({ message: 'Faltan campos obligatorios' });
     }
-    // ... (resto de la lógica de validación y creación sin cambios) ...
+
+    const requestDate = new Date(`${date}T00:00:00`);
+    if (isNaN(requestDate.getTime())) {
+        return res.status(400).json({ message: 'Formato de fecha inválido.' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (requestDate < today) {
+        return res.status(400).json({ message: 'No se pueden hacer reservas para fechas pasadas.' });
+    }
+
+    const maxDate = new Date();
+    maxDate.setHours(0, 0, 0, 0);
+    maxDate.setDate(maxDate.getDate() + 14);
+
+    if (requestDate > maxDate) {
+        return res.status(400).json({ message: 'Solo se puede reservar con un máximo de 2 semanas de antelación.' });
+    }
+
+    if (requestDate.getDay() === 0 || requestDate.getDay() === 6) {
+        return res.status(400).json({ message: 'No se admiten reservas en fin de semana.' });
+    }
+
+    const holiday = await isHoliday(requestDate);
+    if (holiday) {
+        return res.status(400).json({ message: 'No se admiten reservas en días festivos.' });
+    }
+
+    const newStart = new Date(`${date}T${startTime}`);
+    const newEnd = new Date(`${date}T${endTime}`);
+
+    if (newStart >= newEnd) {
+        return res.status(400).json({ message: 'La hora de inicio debe ser anterior a la hora de finalización.' });
+    }
+
     const reservations = await readReservations();
+    const spotReservations = reservations.filter(r => r.spotId === spotId && r.date === date);
+
+    for (const existing of spotReservations) {
+        const existingStart = new Date(`${existing.date}T${existing.startTime}`);
+        const existingEnd = new Date(`${existing.date}T${existing.endTime}`);
+        if (isTimeOverlap(newStart, newEnd, existingStart, existingEnd)) {
+            return res.status(409).json({ message: 'El espacio ya está reservado para el horario seleccionado.' });
+        }
+    }
+
     const spotName = SPOT_NAMES[spotId - 1] || `Espacio ${spotId}`;
     const newReservation = { id: randomUUID(), spotId, spotName, date, startTime, endTime, name, email };
     reservations.push(newReservation);
@@ -54,7 +103,7 @@ router.post('/', async (req, res) => {
 });
 
 // DELETE /api/reservations/admin/all - ADMIN ONLY
-router.delete('/admin/all', adminAuth, async (req, res) => {
+router.delete('/admin/all', authMiddleware, checkRole(['admin']), async (req, res) => {
     await acquireLock();
     try {
         await writeReservations([]);
@@ -68,12 +117,11 @@ router.delete('/admin/all', adminAuth, async (req, res) => {
 });
 
 // DELETE /api/reservations/:id - User or Admin
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   await acquireLock();
   try {
     const { id } = req.params;
-    const adminPassword = req.headers['x-admin-password'];
-    const { email: userEmail } = req.body;
+    const { email, role } = req.user;
 
     const reservations = await readReservations();
     const reservationIndex = reservations.findIndex(r => r.id === id);
@@ -83,18 +131,8 @@ router.delete('/:id', async (req, res) => {
     }
 
     const reservationToDelete = reservations[reservationIndex];
-    let isAuthorized = false;
-
-    // Autorizado si es admin
-    if (adminPassword && adminPassword === config.adminPassword) {
-        isAuthorized = true;
-    }
-    // O si el email coincide (para usuarios normales)
-    else if (userEmail && userEmail === reservationToDelete.email) {
-        isAuthorized = true;
-    }
-
-    if (!isAuthorized) {
+    
+    if (role !== 'admin' && email !== reservationToDelete.email) {
       return res.status(403).json({ message: 'No tiene permiso para eliminar esta reserva.' });
     }
 
