@@ -5,3 +5,7 @@
 # Environment variables
 .env
 backend/.env
+
+# Database files
+backend/db.json
+backend/users.json
