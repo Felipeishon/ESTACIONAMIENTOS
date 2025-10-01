@@ -154,7 +154,6 @@ const sendReservationConfirmationEmail = async (reservation) => {
 };
 
 const sendReservationCancellationEmail = async (reservation) => {
-    console.log(`[sendReservationCancellationEmail] Attempting to send cancellation email to ${reservation.email} for reservation on ${reservation.date}`);
     if (!config.email.host || !config.email.user || !config.email.pass) {
     console.warn('[sendReservationCancellationEmail] Email service is not configured. Skipping email notification.');
     return;
