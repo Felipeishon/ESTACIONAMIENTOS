@@ -1,27 +1,38 @@
 const router = require('express').Router();
 const config = require('../config');
-const { randomUUID } = require('crypto');
+const db = require('../utils/db');
 const {
-    readReservations,
-    writeReservations,
-    isTimeOverlap,
     isHoliday,
-    acquireLock,
-    releaseLock,
     generateGridForDate,
     getMyActiveReservations,
     sendReservationConfirmationEmail,
     sendReservationCancellationEmail,
+    sendWeekendCoordinationEmail,
 } = require('../utils');
 const { authMiddleware, checkRole } = require('../middleware/authMiddleware');
 
-const NUMBER_OF_SPOTS = config.numberOfSpots;
-const SPOT_NAMES = config.spotNames;
+// Helper function to get all reservations for an admin
+const getAllAdminReservations = async () => {
+    const result = await db.query(`
+        SELECT r.id, r.spot_id, s.name as "spotName", r.date, r.start_time, r.end_time, u.name, u.email
+        FROM reservations r
+        JOIN spots s ON r.spot_id = s.id
+        JOIN users u ON r.user_id = u.id
+        WHERE r.date >= CURRENT_DATE
+        ORDER BY r.date, r.start_time
+    `);
+    return result.rows;
+};
 
 // GET /api/reservations
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const reservations = await readReservations();
+    let reservations;
+    if (req.user.role === 'admin') {
+      reservations = await getAllAdminReservations();
+    } else {
+      reservations = await getMyActiveReservations(req.user.id);
+    }
     res.json(reservations);
   } catch (error) {
     console.error('[GET /api/reservations] Failed to get reservations:', error);
@@ -31,10 +42,9 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // POST /api/reservations
 router.post('/', authMiddleware, async (req, res) => {
-  await acquireLock();
   try {
     const { spotId, date, startTime, endTime } = req.body;
-    const { email, name } = req.user; // Get user info from token
+    const { id: userId, email, name } = req.user; // Get user info from token
 
     if (!spotId || !date || !startTime || !endTime) {
       return res.status(400).json({ message: 'Faltan campos obligatorios' });
@@ -54,13 +64,18 @@ router.post('/', authMiddleware, async (req, res) => {
     const maxDate = new Date();
     maxDate.setHours(0, 0, 0, 0);
     maxDate.setDate(maxDate.getDate() + 14);
-
     if (requestDate > maxDate) {
         return res.status(400).json({ message: 'Solo se puede reservar con un máximo de 2 semanas de antelación.' });
     }
 
-    if (requestDate.getDay() === 0 || requestDate.getDay() === 6) {
-        return res.status(400).json({ message: 'No se admiten reservas en fin de semana.' });
+    const spotResult = await db.query('SELECT name FROM spots WHERE id = $1', [spotId]);
+    if (spotResult.rows.length === 0) {
+        return res.status(404).json({ message: 'El espacio de estacionamiento no existe.' });
+    }
+    const spotName = spotResult.rows[0].name;
+
+    if ((requestDate.getDay() === 0 || requestDate.getDay() === 6) && spotName.startsWith('RADISON')) {
+        return res.status(400).json({ message: 'Los espacios RADISON no se pueden reservar durante el fin de semana.' });
     }
 
     const holiday = await isHoliday(requestDate);
@@ -68,96 +83,123 @@ router.post('/', authMiddleware, async (req, res) => {
         return res.status(400).json({ message: 'No se admiten reservas en días festivos.' });
     }
 
-    const newStart = new Date(`${date}T${startTime}`);
-    const newEnd = new Date(`${date}T${endTime}`);
-
-    if (newStart >= newEnd) {
+    if (new Date(`${date}T${startTime}`) >= new Date(`${date}T${endTime}`)) {
         return res.status(400).json({ message: 'La hora de inicio debe ser anterior a la hora de finalización.' });
     }
 
-    const reservations = await readReservations();
-    const spotReservations = reservations.filter(r => r.spotId === spotId && r.date === date);
+    const overlappingReservations = await db.query(
+        `SELECT * FROM reservations WHERE spot_id = $1 AND date = $2 AND (start_time, end_time) OVERLAPS ($3::TIME, $4::TIME)`,
+        [spotId, date, startTime, endTime]
+    );
 
-    for (const existing of spotReservations) {
-        const existingStart = new Date(`${existing.date}T${existing.startTime}`);
-        const existingEnd = new Date(`${existing.date}T${existing.endTime}`);
-        if (isTimeOverlap(newStart, newEnd, existingStart, existingEnd)) {
-            return res.status(409).json({ message: 'El espacio ya está reservado para el horario seleccionado.' });
-        }
+    if (overlappingReservations.rows.length > 0) {
+        return res.status(409).json({ message: 'El espacio ya está reservado para el horario seleccionado.' });
     }
 
-    const spotName = SPOT_NAMES[spotId - 1] || `Espacio ${spotId}`;
-    const newReservation = { id: randomUUID(), spotId, spotName, date, startTime, endTime, name, email };
-    reservations.push(newReservation);
-    await writeReservations(reservations);
+    const newReservationResult = await db.query(
+        'INSERT INTO reservations (spot_id, user_id, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [spotId, userId, date, startTime, endTime]
+    );
+    const newReservation = { ...newReservationResult.rows[0], spotName, name, email };
+
     sendReservationConfirmationEmail(newReservation).catch(console.error);
-    const gridState = await generateGridForDate(date, reservations);
-    const myActiveReservations = getMyActiveReservations(reservations, email);
+
+    if ((requestDate.getDay() === 0 || requestDate.getDay() === 6) && config.coordinationEmail) {
+        sendWeekendCoordinationEmail(newReservation, config.coordinationEmail).catch(console.error);
+    }
+
+    const gridState = await generateGridForDate(date);
+    const myActiveReservations = await getMyActiveReservations(userId); // myActiveReservations is already the array
     res.status(201).json({ newReservation, gridState, gridDate: date, myReservations: myActiveReservations });
+
   } catch (error) {
     console.error('[POST /api/reservations] Failed to create reservation:', error);
     res.status(500).json({ message: 'Error al guardar la reserva.' });
-  } finally {
-    releaseLock();
   }
 });
 
 // DELETE /api/reservations/admin/all - ADMIN ONLY
 router.delete('/admin/all', authMiddleware, checkRole(['admin']), async (req, res) => {
-    await acquireLock();
     try {
-        await writeReservations([]);
+        await db.query('TRUNCATE TABLE reservations RESTART IDENTITY');
         res.status(200).json({ message: 'Todas las reservas han sido eliminadas.' });
     } catch (error) {
         console.error(`[DELETE /api/reservations/admin/all] Failed:`, error);
         res.status(500).json({ message: 'Error al eliminar todas las reservas.' });
-    } finally {
-        releaseLock();
+    }
+});
+
+// DELETE /api/reservations/admin/user/:email - ADMIN ONLY
+router.delete('/admin/user/:email', authMiddleware, checkRole(['admin']), async (req, res) => {
+    try {
+        const { email } = req.params;
+        const userResult = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado.' });
+        }
+        const userId = userResult.rows[0].id;
+
+        await db.query('DELETE FROM reservations WHERE user_id = $1', [userId]);
+        res.status(200).json({ message: `Todas las reservas para ${email} han sido eliminadas.` });
+    } catch (error) {
+        console.error(`[DELETE /api/reservations/admin/user/${req.params.email}] Failed:`, error);
+        res.status(500).json({ message: 'Error al eliminar las reservas del usuario.' });
     }
 });
 
 // DELETE /api/reservations/:id - User or Admin
 router.delete('/:id', authMiddleware, async (req, res) => {
-  await acquireLock();
   try {
     const { id } = req.params;
-    const { email, role } = req.user;
+    const { id: userId, email, role } = req.user;
 
-    const reservations = await readReservations();
-    const reservationIndex = reservations.findIndex(r => r.id === id);
-
-    if (reservationIndex === -1) {
+    const result = await db.query(
+        `SELECT r.*, u.email, u.name, s.name as "spotName"
+         FROM reservations r
+         JOIN users u ON r.user_id = u.id
+         JOIN spots s ON r.spot_id = s.id
+         WHERE r.id = $1`,
+        [id]
+    );
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Reserva no encontrada' });
     }
-
-    const reservationToDelete = reservations[reservationIndex];
+    const reservationToDelete = result.rows[0];
     
-    if (role !== 'admin' && email !== reservationToDelete.email) {
+    if (role !== 'admin' && userId !== reservationToDelete.user_id) {
       return res.status(403).json({ message: 'No tiene permiso para eliminar esta reserva.' });
     }
 
-    reservations.splice(reservationIndex, 1);
-    await writeReservations(reservations);
+    await db.query('DELETE FROM reservations WHERE id = $1', [id]);
 
     sendReservationCancellationEmail(reservationToDelete).catch(err => {
         console.error(`[DELETE /api/reservations/${id}] Sending cancellation email failed:`, err);
     });
 
-    const gridDate = reservationToDelete.date;
-    const gridState = await generateGridForDate(gridDate, reservations);
-    const myActiveReservations = getMyActiveReservations(reservations, reservationToDelete.email);
+    const date = reservationToDelete.date;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const gridDate = `${year}-${month}-${day}`;
+    const gridState = await generateGridForDate(gridDate);
+    
+    let myActiveReservations;
+    if (role === 'admin') {
+      myActiveReservations = await getAllAdminReservations();
+    } else {
+      myActiveReservations = await getMyActiveReservations(userId); // getMyActiveReservations returns the array directly
+    }
 
     res.status(200).json({
       message: 'Reserva eliminada con éxito',
       gridState,
       gridDate,
-      myActiveReservations: myActiveReservations,
+      myReservations: myActiveReservations,
     });
   } catch (error) {
     console.error(`[DELETE /api/reservations/${req.params.id}] Failed:`, error);
     res.status(500).json({ message: 'Error al eliminar la reserva.' });
-  } finally {
-    releaseLock();
   }
 });
 

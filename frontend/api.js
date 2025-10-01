@@ -5,6 +5,16 @@ const getAuthHeaders = () => {
     return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
+async function handleResponse(response) {
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        const error = new Error(errorData.message || 'An error occurred');
+        error.status = response.status;
+        throw error;
+    }
+    return response.json();
+}
+
 export async function login(email, password) {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -13,11 +23,7 @@ export async function login(email, password) {
         },
         body: JSON.stringify({ email, password })
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al iniciar sesión');
-    }
-    return await response.json();
+    return handleResponse(response);
 }
 
 export async function register(name, email, password) {
@@ -28,11 +34,7 @@ export async function register(name, email, password) {
         },
         body: JSON.stringify({ name, email, password })
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al registrarse');
-    }
-    return await response.json();
+    return handleResponse(response);
 }
 
 export async function forgotPassword(email) {
@@ -43,11 +45,7 @@ export async function forgotPassword(email) {
         },
         body: JSON.stringify({ email })
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al solicitar el restablecimiento de contraseña');
-    }
-    return await response.json();
+    return handleResponse(response);
 }
 
 export async function resetPassword(token, password) {
@@ -58,11 +56,7 @@ export async function resetPassword(token, password) {
         },
         body: JSON.stringify({ token, password })
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al restablecer la contraseña');
-    }
-    return await response.json();
+    return handleResponse(response);
 }
 
 export async function getParkingSpots(date) {
@@ -70,10 +64,7 @@ export async function getParkingSpots(date) {
         headers: getAuthHeaders(),
         cache: 'no-cache'
     });
-    if (!response.ok) {
-        throw new Error('Error al obtener espacios de estacionamiento');
-    }
-    return await response.json();
+    return handleResponse(response);
 }
 
 export async function createReservation(reservationData) {
@@ -85,11 +76,7 @@ export async function createReservation(reservationData) {
         },
         body: JSON.stringify(reservationData)
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al crear la reserva');
-    }
-    return await response.json(); 
+    return handleResponse(response);
 }
 
 export async function getReservations() {
@@ -97,10 +84,7 @@ export async function getReservations() {
         headers: getAuthHeaders(),
         cache: 'no-cache'
     });
-    if (!response.ok) {
-        throw new Error('Error al obtener reservas');
-    }
-    return await response.json();
+    return handleResponse(response);
 }
 
 export async function deleteReservation(reservationId) {
@@ -111,12 +95,7 @@ export async function deleteReservation(reservationId) {
             ...getAuthHeaders()
         }
     });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al cancelar la reserva');
-    }
-    return await response.json();
+    return handleResponse(response);
 }
 
 export async function deleteAllReservations() {
@@ -127,21 +106,31 @@ export async function deleteAllReservations() {
             ...getAuthHeaders()
         }
     });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al eliminar todas las reservas');
-    }
-    return await response.json();
+    return handleResponse(response);
 }
 
+export async function deleteAllReservationsForUser(email) {
+    const response = await fetch(`${API_BASE_URL}/reservations/admin/user/${email}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        }
+    });
+    return handleResponse(response);
+}
 
 export async function getConfig() {
     const response = await fetch(`${API_BASE_URL}/config`, {
         cache: 'no-cache'
     });
-    if (!response.ok) {
-        throw new Error('Error al obtener la configuración');
-    }
-    return await response.json();
+    return handleResponse(response);
+}
+
+export async function getUsers() {
+    const response = await fetch(`${API_BASE_URL}/users`, {
+        headers: getAuthHeaders(),
+        cache: 'no-cache'
+    });
+    return handleResponse(response);
 }

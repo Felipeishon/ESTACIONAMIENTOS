@@ -9,3 +9,7 @@ backend/.env
 # Database files
 backend/db.json
 backend/users.json
+
+# It is generally recommended to commit package-lock.json to source control.
+# However, if you want to ignore it, uncomment the following line:
+# /backend/package-lock.json

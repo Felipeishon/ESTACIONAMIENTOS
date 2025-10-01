@@ -3,6 +3,7 @@ require('dotenv').config();
 const config = {
     port: process.env.PORT || 3001,
     nodeEnv: process.env.NODE_ENV || 'development',
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     numberOfSpots: 27,
     spotNames: [
         'MATTA6060', 'MATTA6067', 'MISTRAL1017', 'MISTRAL1018', 'MISTRAL3005',
@@ -16,7 +17,13 @@ const config = {
     allowedOrigins: process.env.ALLOWED_ORIGINS ?
         process.env.ALLOWED_ORIGINS.split(',') :
         ['http://localhost:3000', 'http://localhost:8000', 'http://192.168.70.12:8000'],
-    dbPath: process.env.DB_PATH || './db.json',
+    db: {
+        host: process.env.DB_HOST || 'localhost',
+        port: process.env.DB_PORT || 5432,
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || 'your_password',
+        database: process.env.DB_NAME || 'parking_db',
+    },
     allowedEmailDomain: `@${process.env.ALLOWED_EMAIL_DOMAIN || 'gmail.com'}`,
     apiNinjasKey: process.env.API_NINJAS_KEY || 'YOUR_API_KEY',
     email: {
@@ -29,7 +36,9 @@ const config = {
         from: process.env.EMAIL_FROM || `"Sistema de Reservas" <${process.env.EMAIL_USER}>`
     },
     jwtSecret: process.env.JWT_SECRET,
-    adminPassword: process.env.ADMIN_PASSWORD
+    adminPassword: process.env.ADMIN_PASSWORD,
+    adminEmail: process.env.ADMIN_EMAIL || 'reservas.estacionamiento.iansa@gmail.com',
+    coordinationEmail: process.env.COORDINATION_EMAIL,
 };
 
 module.exports = config;

@@ -1,22 +1,34 @@
-import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, login, register, forgotPassword, resetPassword } from './api.js';
+import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, deleteAllReservationsForUser, login, register, forgotPassword, resetPassword } from './api.js';
 import { displayReservations, showView } from './ui.js';
 import { showToast } from './toast.js';
+import { state as appState, setAppState } from './state.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos del DOM
-    const authForm = document.getElementById('authForm');
-    const userNameInput = document.getElementById('userName');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
+    const loginForm = document.getElementById('loginForm');
+    const loginEmailInput = document.getElementById('loginEmail');
+    const loginPasswordInput = document.getElementById('loginPassword');
+    
+    const registerForm = document.getElementById('registerForm');
+    const registerNameInput = document.getElementById('registerName');
+    const registerEmailInput = document.getElementById('registerEmail');
+    const registerPasswordInput = document.getElementById('registerPassword');
+
+    const showRegisterLink = document.getElementById('showRegisterLink');
+    const showLoginLink = document.getElementById('showLoginLink');
+    const loginView = document.getElementById('loginView');
+    const registerView = document.getElementById('registerView');
+
     const logoutButton = document.getElementById('logoutButton');
     const themeToggleButton = document.getElementById('theme-toggle');
-    const registerButton = document.getElementById('registerButton');
 
     const reservationHeading = document.getElementById('reservation-heading');
     const parkingGrid = document.getElementById('parkingGrid');
     const reservationsList = document.getElementById('reservationsList');
     const gridDateInput = document.getElementById('gridDate');
     const deleteAllButton = document.getElementById('deleteAllButton');
+    const adminFilters = document.getElementById('adminFilters');
+    const userFilter = document.getElementById('userFilter');
 
     const reservationModal = document.getElementById('reservationModal');
     const modalCloseBtn = reservationModal.querySelector('.close');
@@ -33,15 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetTokenInput = document.getElementById('resetToken');
     const newPasswordInput = document.getElementById('newPassword');
     const confirmPasswordInput = document.getElementById('confirmPassword');
-
-    // Estado de la aplicación
-    const appState = {
-        token: null,
-        user: null,
-        selectedSpotId: null,
-        selectedDate: null,
-        allTimeSlotsForSpot: [],
-    };
 
     // --- Lógica de Tema ---
     const applyTheme = (theme) => {
@@ -65,8 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleLogin = async (event) => {
         event.preventDefault();
-        const email = emailInput.value.trim();
-        const password = passwordInput.value.trim();
+        const email = loginEmailInput.value.trim();
+        const password = loginPasswordInput.value.trim();
 
         if (!email || !password) {
             return showToast('Por favor, ingrese su correo y contraseña.');
@@ -82,10 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const handleRegister = async () => {
-        const name = userNameInput.value.trim();
-        const email = emailInput.value.trim();
-        const password = passwordInput.value.trim();
+    const handleRegister = async (event) => {
+        event.preventDefault();
+        const name = registerNameInput.value.trim();
+        const email = registerEmailInput.value.trim();
+        const password = registerPasswordInput.value.trim();
 
         if (!name || !email || !password) {
             return showToast('Por favor, complete todos los campos para registrarse.');
@@ -94,7 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await register(name, email, password);
             showToast('Registro exitoso. Ahora puede iniciar sesión.');
-            authForm.reset();
+            registerForm.reset();
+            loginView.style.display = 'block';
+            registerView.style.display = 'none';
         } catch (error) {
             handleError(error);
         }
@@ -102,8 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleLogout = () => {
         localStorage.removeItem('token');
-        appState.token = null;
-        appState.user = null;
+        setAppState({ token: null, user: null });
         window.location.hash = '';
         handleRouteChange();
         window.location.reload(); // Forzar recarga para limpiar estado complejo
@@ -158,15 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const token = localStorage.getItem('token');
             if (token) {
-                appState.token = token;
-                appState.user = decodeToken(token);
+                setAppState({ token: token, user: decodeToken(token) });
                 logoutButton.style.display = 'block';
                 reservationHeading.textContent = `Reservar Estacionamiento (${appState.user.name})`;
                 showView('reservationSection');
                 initializeGridAndReservations();
             } else {
-                appState.token = null;
-                appState.user = null;
+                setAppState({ token: null, user: null });
                 logoutButton.style.display = 'none';
                 showView('authSection');
             }
@@ -183,10 +186,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- MANEJADORES DE EVENTOS ---
     themeToggleButton.addEventListener('click', toggleTheme);
-    authForm.addEventListener('submit', handleLogin);
-    registerButton.addEventListener('click', handleRegister);
+    loginForm.addEventListener('submit', handleLogin);
+    registerForm.addEventListener('submit', handleRegister);
     logoutButton.addEventListener('click', handleLogout);
     window.addEventListener('hashchange', handleRouteChange);
+
+    showRegisterLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        loginView.style.display = 'none';
+        registerView.style.display = 'block';
+    });
+
+    showLoginLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        registerView.style.display = 'none';
+        loginView.style.display = 'block';
+    });
 
     // Navegación para restablecer contraseña
     forgotPasswordLink.addEventListener('click', (e) => {
@@ -199,6 +214,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Eventos de la aplicación principal
     gridDateInput.addEventListener('change', () => loadParkingGrid(gridDateInput.value));
+    userFilter.addEventListener('change', () => {
+        const selectedEmail = userFilter.value;
+        const filteredReservations = selectedEmail
+            ? appState.allReservations.filter(res => res.email === selectedEmail)
+            : appState.allReservations;
+        displayReservations(filteredReservations, appState.user?.role === 'admin', appState.user?.email);
+    });
     reservationsList.addEventListener('click', async (event) => {
         if (event.target.classList.contains('delete-btn')) {
             const reservationId = event.target.dataset.reservationId;
@@ -216,13 +238,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     deleteAllButton.addEventListener('click', async () => {
         if (appState.user?.role !== 'admin') return;
-        if (confirm('¿Está seguro de que desea eliminar TODAS las reservas? Esta acción no se puede deshacer.')) {
-            try {
-                await deleteAllReservations();
-                showToast('Todas las reservas han sido eliminadas.');
-                initializeGridAndReservations();
-            } catch (error) {
-                handleError(error);
+
+        const selectedUser = userFilter.value;
+        if (selectedUser) {
+            if (confirm(`¿Está seguro de que desea eliminar TODAS las reservas para ${selectedUser}? Esta acción no se puede deshacer.`)) {
+                try {
+                    // This function needs to be created in api.js
+                    await deleteAllReservationsForUser(selectedUser);
+                    showToast(`Todas las reservas para ${selectedUser} han sido eliminadas.`);
+                    initializeGridAndReservations();
+                } catch (error) {
+                    handleError(error);
+                }
+            }
+        } else {
+            if (confirm('¿Está seguro de que desea eliminar TODAS las reservas? Esta acción no se puede deshacer.')) {
+                try {
+                    await deleteAllReservations();
+                    showToast('Todas las reservas han sido eliminadas.');
+                    initializeGridAndReservations();
+                } catch (error) {
+                    handleError(error);
+                }
             }
         }
     });
@@ -237,7 +274,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleError(error, userMessage) {
         console.error(error);
-        showToast(userMessage || error.message);
+        if (error.status === 401) {
+            showToast('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.');
+            handleLogout();
+        } else {
+            showToast(userMessage || error.message);
+        }
     }
 
     function addOption(select, text, value = '', disabled = false, selected = false) {
@@ -249,13 +291,25 @@ document.addEventListener('DOMContentLoaded', () => {
         select.appendChild(option);
     }
 
+    function populateUserFilter(reservations) {
+        userFilter.innerHTML = '<option value="">Todos los usuarios</option>';
+        const userEmails = [...new Set(reservations.map(res => res.email))];
+        userEmails.sort().forEach(email => {
+            addOption(userFilter, email, email);
+        });
+    }
+
     // --- FUNCIONES PRINCIPALES DE LA APP ---
     function initializeGridAndReservations() {
         if (appState.user?.role === 'admin') {
+            document.getElementById('my-reservations-heading').textContent = 'Reservas';
             deleteAllButton.style.display = 'block';
         }
         const today = new Date();
-        const todayISO = today.toISOString().split('T')[0];
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayISO = `${year}-${month}-${day}`;
 
         const maxDate = new Date(today);
         maxDate.setDate(today.getDate() + 14);
@@ -357,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await createReservation(reservationData);
             showToast('Reserva creada exitosamente!');
             closeModal();
-            displayReservations(result.myReservations, appState.user?.role === 'admin', appState.user?.email);
+            displayReservations(result.myReservations, appState.user?.role === 'admin', appState.user?.email); // Usa la lista de reservas de la respuesta
             redrawParkingGrid(result.gridState);
         } catch (error) {
             handleError(error);
@@ -365,8 +419,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function openModal(spot) {
-        appState.selectedSpotId = spot.id;
-        appState.selectedDate = gridDateInput.value;
+        setAppState({
+            allTimeSlotsForSpot: spot.timeSlots, // Guardar los horarios del spot seleccionado
+            selectedSpotId: spot.id,
+            selectedDate: gridDateInput.value
+        });
         document.getElementById('modalSpotName').textContent = spot.name;
         document.getElementById('modalDateDisplay').textContent = appState.selectedDate;
         populateTimeSelects(spot, appState.selectedDate);
@@ -383,10 +440,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!date || !spot) return;
 
-        appState.allTimeSlotsForSpot = spot.timeSlots; // Bug fix: This line was missing
         let availableStartSlots = spot.timeSlots.filter(slot => !slot.isReserved);
 
-        if (date === new Date().toISOString().split('T')[0]) {
+        const requestDate = new Date(`${date}T00:00:00`);
+        const isWeekend = requestDate.getDay() === 0 || requestDate.getDay() === 6; // Sunday=0, Saturday=6
+        const isRadisonSpot = spot.name && spot.name.startsWith('RADISON');
+
+        if (isWeekend && isRadisonSpot) {
+            addOption(startTimeInput, 'No disponible en fin de semana', '', true);
+            addOption(endTimeInput, 'No disponible en fin de semana', '', true);
+            confirmModalReservationBtn.disabled = true;
+            startTimeInput.disabled = true;
+            endTimeInput.disabled = true;
+            return;
+        }
+
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayISO = `${year}-${month}-${day}`;
+
+        if (date === todayISO) {
             const currentTime = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
             availableStartSlots = availableStartSlots.filter(slot => slot.startTime >= currentTime);
         }
@@ -436,15 +511,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadAndDisplayReservations() {
         try {
+            document.getElementById('myReservationsSection').classList.remove('hidden');
             const reservations = await getReservations();
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            setAppState({ allReservations: reservations }); // Store all reservations
 
-            const reservationsToDisplay = appState.user?.role === 'admin'
-                ? reservations.filter(r => new Date(`${r.date}T00:00:00`) >= today)
-                : reservations.filter(r => r.email === appState.user?.email && new Date(`${r.date}T00:00:00`) >= today);
-            
-            displayReservations(reservationsToDisplay, appState.user?.role === 'admin', appState.user?.email);
+            if (appState.user?.role === 'admin') {
+                adminFilters.style.display = 'block';
+                populateUserFilter(reservations);
+            }
+
+            displayReservations(reservations, appState.user?.role === 'admin', appState.user?.email);
         } catch (error) {
             handleError(error);
         }

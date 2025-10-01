@@ -10,33 +10,51 @@
     <header>
         <h1>Sistema de Reservas de Estacionamiento</h1>
         <div class="header-controls">
-            <button id="theme-toggle">Cambiar Tema</button>
+            <button id="theme-toggle" class="theme-toggle-btn">Modo oscuro</button>
             <button id="logoutButton" style="display: none;">Cerrar Sesión</button>
         </div>
     </header>
 
     <main role="main">
         <section id="authSection" aria-labelledby="auth-heading">
-            <h2 id="auth-heading">Iniciar Sesión o Registrarse</h2>
-            <form id="authForm" role="form" aria-label="Formulario de autenticación">
-                <div class="form-group">
-                    <label for="userName">Nombre y Apellido (para registrarse):</label>
-                    <input type="text" id="userName" aria-describedby="name-help" minlength="5" title="Por favor, ingrese su nombre y al menos un apellido.">
-                    <span id="name-help" class="sr-only">Ingrese su nombre completo</span>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email:</label>
-                    <input type="email" id="email" required aria-describedby="email-help" aria-required="true">
-                    <span id="email-help" class="sr-only">Ingrese su dirección de correo electrónico</span>
-                </div>
-                <div class="form-group">
-                    <label for="password">Contraseña:</label>
-                    <input type="password" id="password" required aria-required="true">
-                </div>
-                <button type="submit" id="loginButton">Iniciar Sesión</button>
-                <button type="button" id="registerButton">Registrarse</button>
-                <p class="forgot-password-link"><a href="#" id="forgotPasswordLink">¿Olvidaste tu contraseña?</a></p>
-            </form>
+            <!-- Login View -->
+            <div id="loginView">
+                <h2 id="auth-heading">Iniciar Sesión</h2>
+                <form id="loginForm" role="form" aria-label="Formulario de inicio de sesión">
+                    <div class="form-group">
+                        <label for="loginEmail">Email:</label>
+                        <input type="email" id="loginEmail" required aria-required="true">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Contraseña:</label>
+                        <input type="password" id="loginPassword" required aria-required="true">
+                    </div>
+                    <button type="submit">Iniciar Sesión</button>
+                    <p class="forgot-password-link"><a href="#" id="forgotPasswordLink">¿Olvidaste tu contraseña?</a></p>
+                    <p class="toggle-auth-view">¿No tienes una cuenta? <a href="#" id="showRegisterLink">Regístrate</a></p>
+                </form>
+            </div>
+
+            <!-- Register View -->
+            <div id="registerView" style="display: none;">
+                <h2>Registrarse</h2>
+                <form id="registerForm" role="form" aria-label="Formulario de registro">
+                    <div class="form-group">
+                        <label for="registerName">Nombre y Apellido:</label>
+                        <input type="text" id="registerName" minlength="5" title="Por favor, ingrese su nombre y al menos un apellido." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerEmail">Email:</label>
+                        <input type="email" id="registerEmail" required aria-required="true">
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">Contraseña:</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <button type="submit">Registrarse</button>
+                    <p class="toggle-auth-view">¿Ya tienes una cuenta? <a href="#" id="showLoginLink">Inicia Sesión</a></p>
+                </form>
+            </div>
         </section>
 
         <section id="forgotPasswordView" style="display: none;" aria-labelledby="forgot-password-heading">
@@ -101,11 +119,18 @@
             </div>
         </div>
 
-        <section class="reservations" aria-labelledby="my-reservations-heading">
+        <section id="myReservationsSection" class="reservations hidden" aria-labelledby="my-reservations-heading">
             <h2 id="my-reservations-heading">Mis Reservas</h2>
+            <div id="adminFilters" style="display: none;">
+                <label for="userFilter">Filtrar por usuario:</label>
+                <select id="userFilter"></select>
+            </div>
+            <div id="adminControls" style="display: none;"></div>
             <button id="deleteAllButton" class="delete-all-button" style="display: none;">Eliminar Todas las Reservas</button>
             <div id="reservationsList" role="list" aria-label="Lista de reservas existentes"></div>
         </section>
+
+
     </main>
 
     <script type="module" src="api.js" defer></script>

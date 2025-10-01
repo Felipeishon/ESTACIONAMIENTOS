@@ -5,6 +5,7 @@ const config = require('./config');
 const reservationsRouter = require('./routes/reservations');
 const parkingRouter = require('./routes/parking');
 const authRouter = require('./routes/auth');
+const usersRouter = require('./routes/users');
 
 const app = express();
 const PORT = config.port;
@@ -24,6 +25,7 @@ app.get('/api/config', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/reservations', reservationsRouter);
 app.use('/api/parking-spots', parkingRouter);
+app.use('/api/users', usersRouter);
 
 // Ruta para servir el index.html para cualquier ruta no manejada por API
 app.get('*', (req, res) => {

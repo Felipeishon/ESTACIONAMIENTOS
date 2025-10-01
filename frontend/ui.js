@@ -10,8 +10,8 @@ export function displayReservations(reservations, isAdmin = false, currentUserEm
     }
 
     const sortedReservations = [...reservations].sort((a, b) => {
-        const dateA = new Date(`${a.date}T${a.startTime}`);
-        const dateB = new Date(`${b.date}T${b.startTime}`);
+        const dateA = new Date(`${a.date}T${a.start_time}`);
+        const dateB = new Date(`${b.date}T${b.start_time}`);
         return dateA - dateB;
     });
 
@@ -39,8 +39,8 @@ export function displayReservations(reservations, isAdmin = false, currentUserEm
         reservationElement.innerHTML = `
             ${deleteButtonHtml}
             <h3>${reservation.spotName || `Espacio #${reservation.spotId}`}</h3>
-            <p>Fecha: <span class="reservation-date">${reservation.date}</span></p>
-            <p>Horario: <span class="reservation-time">${reservation.startTime} - ${reservation.endTime}</span></p>
+            <p>Fecha: <span class="reservation-date">${new Date(reservation.date).toLocaleDateString('es-CL')}</span></p>
+            <p>Horario: <span class="reservation-time">${reservation.start_time} - ${reservation.end_time}</span></p>
             <p>Reservado por: <span class="reservation-user">${userDisplay}</span></p>
         `;
 
@@ -71,7 +71,7 @@ export function showLoginForm() {
     }
 }
 
-const allViews = ['authSection', 'reservationSection', 'forgotPasswordView', 'resetPasswordView'];
+const allViews = ['authSection', 'reservationSection', 'forgotPasswordView', 'resetPasswordView', 'userManagementSection'];
 
 export function showView(viewId) {
     allViews.forEach(id => {
@@ -85,4 +85,38 @@ export function showView(viewId) {
     if (activeView) {
         activeView.style.display = 'block';
     }
+}
+
+export function displayUsers(users) {
+    const usersList = document.getElementById('usersList');
+    usersList.innerHTML = '';
+
+    if (!users || users.length === 0) {
+        usersList.innerHTML = '<p>No hay usuarios registrados.</p>';
+        return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'user-table';
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>Fecha de Registro</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${users.map(user => `
+                <tr>
+                    <td>${user.name}</td>
+                    <td>${user.email}</td>
+                    <td>${user.role}</td>
+                    <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
+    usersList.appendChild(table);
 }
