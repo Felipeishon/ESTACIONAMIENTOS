@@ -4,6 +4,13 @@ const config = require('./config');
 const db = require('./utils/db');
 
 // Helper function to check for time overlap (can be kept for client-side or non-db logic)
+const createApiError = (message, statusCode) => {
+    const error = new Error(message);
+    error.statusCode = statusCode;
+    return error;
+};
+
+
 const isTimeOverlap = (newStart, newEnd, existingStart, existingEnd) => {
   return newStart < existingEnd && newEnd > existingStart;
 };
@@ -114,6 +121,73 @@ const getMyActiveReservations = async (userId) => {
     return result.rows;
 };
 
+const validateAndCreateReservation = async (body, user) => {
+    const { spotId, date, startTime, endTime } = body;
+    const { id: userId, email, name } = user;
+
+    if (!spotId || !date || !startTime || !endTime) {
+        throw createApiError('Faltan campos obligatorios', 400);
+    }
+
+    const requestDate = new Date(`${date}T00:00:00`);
+    if (isNaN(requestDate.getTime())) {
+        throw createApiError('Formato de fecha inválido.', 400);
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (requestDate < today) {
+        throw createApiError('No se pueden hacer reservas para fechas pasadas.', 400);
+    }
+
+    const maxDate = new Date();
+    maxDate.setHours(0, 0, 0, 0);
+    maxDate.setDate(maxDate.getDate() + 14);
+    if (requestDate > maxDate) {
+        throw createApiError('Solo se puede reservar con un máximo de 2 semanas de antelación.', 400);
+    }
+
+    const spotResult = await db.query('SELECT name FROM spots WHERE id = $1', [spotId]);
+    if (spotResult.rows.length === 0) {
+        throw createApiError('El espacio de estacionamiento no existe.', 404);
+    }
+    const spotName = spotResult.rows[0].name;
+
+    if ((requestDate.getDay() === 0 || requestDate.getDay() === 6) && spotName.startsWith('RADISON')) {
+        throw createApiError('Los espacios RADISON no se pueden reservar durante el fin de semana.', 400);
+    }
+
+    const holiday = await isHoliday(requestDate);
+    if (holiday) {
+        throw createApiError('No se admiten reservas en días festivos.', 400);
+    }
+
+    if (new Date(`${date}T${startTime}`) >= new Date(`${date}T${endTime}`)) {
+        throw createApiError('La hora de inicio debe ser anterior a la hora de finalización.', 400);
+    }
+
+    const overlappingReservations = await db.query(
+        `SELECT 1 FROM reservations WHERE spot_id = $1 AND date = $2 AND (start_time, end_time) OVERLAPS ($3::TIME, $4::TIME) LIMIT 1`,
+        [spotId, date, startTime, endTime]
+    );
+
+    if (overlappingReservations.rows.length > 0) {
+        throw createApiError('El espacio ya está reservado para el horario seleccionado.', 409);
+    }
+
+    const newReservationResult = await db.query(
+        'INSERT INTO reservations (spot_id, user_id, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [spotId, userId, date, startTime, endTime]
+    );
+
+    // Formatear la fecha para que sea consistente (YYYY-MM-DD)
+    const reservationDate = new Date(newReservationResult.rows[0].date).toISOString().split('T')[0];
+
+    const newReservation = { ...newReservationResult.rows[0], date: reservationDate, spotName, name, email };
+
+    return { newReservation, requestDate };
+};
+
 // --- Email Functions (Full implementation should be kept) ---
 
 const sendReservationConfirmationEmail = async (reservation) => {
@@ -123,7 +197,7 @@ const sendReservationConfirmationEmail = async (reservation) => {
   }
   const transporter = nodemailer.createTransport({ host: config.email.host, port: config.email.port, secure: config.email.secure, auth: { user: config.email.user, pass: config.email.pass } });
   const mailOptions = {
-    from: config.email.from,
+    from: "Estacionamiento Reserva" <${config.email.user}>`,
     to: reservation.email,
     subject: 'Confirmación de Reserva de Estacionamiento',
     html: `
@@ -136,7 +210,7 @@ const sendReservationConfirmationEmail = async (reservation) => {
             <h3 style="margin-top: 0;">Detalles de la Reserva</h3>
             <ul style="list-style-type: none; padding: 0;">
               <li style="margin-bottom: 10px;"><strong>Estacionamiento:</strong> ${reservation.spotName}</li>
-              <li style="margin-bottom: 10px;"><strong>Fecha:</strong> ${new Date(reservation.date).toLocaleDateString('es-CL')}</li>
+              <li style="margin-bottom: 10px;"><strong>Fecha:</strong> ${reservation.date}</li>
               <li style="margin-bottom: 10px;"><strong>Horario:</strong> ${reservation.start_time} - ${reservation.end_time}</li>
             </ul>
           </div>
@@ -182,7 +256,7 @@ const sendReservationCancellationEmail = async (reservation) => {
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <ul style="list-style-type: none; padding: 0;">
               <li style="margin-bottom: 10px;"><strong>Estacionamiento:</strong> ${reservation.spotName}</li>
-              <li style="margin-bottom: 10px;"><strong>Fecha:</strong> ${new Date(reservation.date).toLocaleDateString('es-CL')}</li>
+              <li style="margin-bottom: 10px;"><strong>Fecha:</strong> ${reservation.date}</li>
               <li style="margin-bottom: 10px;"><strong>Horario:</strong> ${reservation.start_time} - ${reservation.end_time}</li>
             </ul>
           </div>
@@ -279,7 +353,7 @@ const sendWeekendCoordinationEmail = async (reservation, coordinationEmail) => {
             <ul style="list-style-type: none; padding: 0;">
               <li style="margin-bottom: 10px;"><strong>Usuario:</strong> ${reservation.name} (${reservation.email})</li>
               <li style="margin-bottom: 10px;"><strong>Estacionamiento:</strong> ${reservation.spotName}</li>
-              <li style="margin-bottom: 10px;"><strong>Fecha:</strong> ${new Date(reservation.date).toLocaleDateString('es-CL')}</li>
+              <li style="margin-bottom: 10px;"><strong>Fecha:</strong> ${reservation.date}</li>
               <li style="margin-bottom: 10px;"><strong>Horario:</strong> ${reservation.start_time} - ${reservation.end_time}</li>
             </ul>
           </div>
@@ -302,6 +376,7 @@ module.exports = {
   isHoliday,
   generateGridForDate,
   getMyActiveReservations,
+  validateAndCreateReservation,
   sendReservationConfirmationEmail,
   sendReservationCancellationEmail,
   sendPasswordResetEmail,

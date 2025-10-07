@@ -1,7 +1,7 @@
 import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, deleteAllReservationsForUser, login, register, forgotPassword, resetPassword } from './api.js';
 import { displayReservations, showView } from './ui.js';
 import { showToast } from './toast.js';
-import { state as appState, setAppState } from './state.js';
+import { setAppState, getUser, getAllReservations, getSelectedSpotDetails, subscribe } from './store.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos del DOM
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (token) {
                 setAppState({ token: token, user: decodeToken(token) });
                 logoutButton.style.display = 'block';
-                reservationHeading.textContent = `Reservar Estacionamiento (${appState.user.name})`;
+                reservationHeading.textContent = `Reservar Estacionamiento (${getUser().name})`;
                 showView('reservationSection');
                 initializeGridAndReservations();
             } else {
@@ -216,10 +216,11 @@ document.addEventListener('DOMContentLoaded', () => {
     gridDateInput.addEventListener('change', () => loadParkingGrid(gridDateInput.value));
     userFilter.addEventListener('change', () => {
         const selectedEmail = userFilter.value;
+        const allReservations = getAllReservations();
         const filteredReservations = selectedEmail
-            ? appState.allReservations.filter(res => res.email === selectedEmail)
-            : appState.allReservations;
-        displayReservations(filteredReservations, appState.user?.role === 'admin', appState.user?.email);
+            ? allReservations.filter(res => res.email === selectedEmail)
+            : allReservations;
+        displayReservations(filteredReservations, getUser()?.role === 'admin', getUser()?.email);
     });
     reservationsList.addEventListener('click', async (event) => {
         if (event.target.classList.contains('delete-btn')) {
@@ -237,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     deleteAllButton.addEventListener('click', async () => {
-        if (appState.user?.role !== 'admin') return;
+        if (getUser()?.role !== 'admin') return;
 
         const selectedUser = userFilter.value;
         if (selectedUser) {
@@ -301,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FUNCIONES PRINCIPALES DE LA APP ---
     function initializeGridAndReservations() {
-        if (appState.user?.role === 'admin') {
+        if (getUser()?.role === 'admin') {
             document.getElementById('my-reservations-heading').textContent = 'Reservas';
             deleteAllButton.style.display = 'block';
         }
@@ -400,19 +401,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleConfirmReservation() {
+        const { spotId, date } = getSelectedSpotDetails();
         const reservationData = {
-            spotId: appState.selectedSpotId,
-            date: appState.selectedDate,
+            spotId: spotId,
+            date: date,
             startTime: startTimeInput.value,
             endTime: endTimeInput.value,
         };
 
         try {
             const result = await createReservation(reservationData);
-            showToast('Reserva creada exitosamente!');
+            const user = getUser();
+            showToast(result.message || 'Reserva creada exitosamente!');
             closeModal();
-            displayReservations(result.myReservations, appState.user?.role === 'admin', appState.user?.email); // Usa la lista de reservas de la respuesta
+            // Actualizar la grilla y la lista de reservas para todos los usuarios
             redrawParkingGrid(result.gridState);
+            loadAndDisplayReservations(); // <-- ESTA ES LA LÍNEA CLAVE
         } catch (error) {
             handleError(error);
         }
@@ -425,8 +429,8 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedDate: gridDateInput.value
         });
         document.getElementById('modalSpotName').textContent = spot.name;
-        document.getElementById('modalDateDisplay').textContent = appState.selectedDate;
-        populateTimeSelects(spot, appState.selectedDate);
+        document.getElementById('modalDateDisplay').textContent = gridDateInput.value;
+        populateTimeSelects(spot, gridDateInput.value);
         reservationModal.style.display = 'block';
     }
 
@@ -491,11 +495,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const startIndex = appState.allTimeSlotsForSpot.findIndex(slot => slot.startTime === selectedStartTime);
+        const { timeSlots } = getSelectedSpotDetails();
+        const startIndex = timeSlots.findIndex(slot => slot.startTime === selectedStartTime);
         if (startIndex === -1) return;
 
-        for (let i = startIndex; i < appState.allTimeSlotsForSpot.length; i++) {
-            const slot = appState.allTimeSlotsForSpot[i];
+        // El primer slot de salida es el final del slot de entrada
+        addOption(endTimeInput, timeSlots[startIndex].endTime, timeSlots[startIndex].endTime);
+
+        for (let i = startIndex + 1; i < timeSlots.length; i++) {
+            const slot = timeSlots[i];
             if (slot.isReserved) {
                 break;
             }
@@ -513,14 +521,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             document.getElementById('myReservationsSection').classList.remove('hidden');
             const reservations = await getReservations();
+            const user = getUser();
             setAppState({ allReservations: reservations }); // Store all reservations
 
-            if (appState.user?.role === 'admin') {
+            if (user?.role === 'admin') {
                 adminFilters.style.display = 'block';
                 populateUserFilter(reservations);
             }
 
-            displayReservations(reservations, appState.user?.role === 'admin', appState.user?.email);
+            displayReservations(reservations, user?.role === 'admin', user?.email);
         } catch (error) {
             handleError(error);
         }
