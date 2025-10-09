@@ -172,43 +172,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const gridDate = new Date(reservationToDelete.date).toISOString().split('T')[0];
     const gridState = await generateGridForDate(gridDate);
     
-    let myActiveReservations;
-    if (role === 'admin') {
-      myActiveReservations = await getAllAdminReservations();
-    } else {
-      myActiveReservations = await getMyActiveReservations(userId); // getMyActiveReservations returns the array directly
-    }
-
-    res.status(200).json({
-      message: 'Reserva eliminada con éxito',
-      gridState,
-      gridDate,
-      myReservations: myActiveReservations,
-    });
-  } catch (error) {
-    console.error(`[DELETE /api/reservations/${req.params.id}] Failed:`, error);
-    res.status(500).json({ message: 'Error al eliminar la reserva.' });
-  }
-});
-
-module.exports = router;oDelete.date).toISOString().split('T')[0], // <-- CORRECCIÓN
-        start_time: reservationToDelete.start_time,
-        end_time: reservationToDelete.end_time,
-    };
-    sendReservationCancellationEmail(emailData).catch(err => {
-        console.error(`[DELETE /api/reservations/${id}] Sending cancellation email failed:`, err);
-    });
-
-    // Asegurarse de que la fecha esté en formato YYYY-MM-DD para la grilla
-    const gridDate = new Date(reservationToDelete.date).toISOString().split('T')[0];
-    const gridState = await generateGridForDate(gridDate);
-    
-    let myActiveReservations;
-    if (role === 'admin') {
-      myActiveReservations = await getAllAdminReservations();
-    } else {
-      myActiveReservations = await getMyActiveReservations(userId); // getMyActiveReservations returns the array directly
-    }
+    // Devuelve siempre las reservas actualizadas del usuario que realiza la acción (sea admin o no)
+    const myActiveReservations = (role === 'admin') ? await getAllAdminReservations() : await getMyActiveReservations(userId);
 
     res.status(200).json({
       message: 'Reserva eliminada con éxito',

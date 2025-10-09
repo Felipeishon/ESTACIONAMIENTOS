@@ -129,6 +129,12 @@ const validateAndCreateReservation = async (body, user) => {
         throw createApiError('Faltan campos obligatorios', 400);
     }
 
+    // Validación del nombre de usuario
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (typeof name !== 'string' || name.length < 2 || name.length > 50 || !nameRegex.test(name)) {
+        throw createApiError('El nombre debe tener entre 2 y 50 caracteres y contener solo letras y espacios.', 400);
+    }
+
     const requestDate = new Date(`${date}T00:00:00`);
     if (isNaN(requestDate.getTime())) {
         throw createApiError('Formato de fecha inválido.', 400);
@@ -197,7 +203,7 @@ const sendReservationConfirmationEmail = async (reservation) => {
   }
   const transporter = nodemailer.createTransport({ host: config.email.host, port: config.email.port, secure: config.email.secure, auth: { user: config.email.user, pass: config.email.pass } });
   const mailOptions = {
-    from: "Estacionamiento Reserva" <${config.email.user}>`,
+    from: config.email.from,
     to: reservation.email,
     subject: 'Confirmación de Reserva de Estacionamiento',
     html: `
