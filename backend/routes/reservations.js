@@ -173,7 +173,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const gridState = await generateGridForDate(gridDate);
     
     // Devuelve siempre las reservas actualizadas del usuario que realiza la acción (sea admin o no)
-    const myActiveReservations = (role === 'admin') ? await getAllAdminReservations() : await getMyActiveReservations(userId);
+    const myActiveReservations = await (role === 'admin' ? getAllAdminReservations() : getMyActiveReservations(userId));
 
     res.status(200).json({
       message: 'Reserva eliminada con éxito',
