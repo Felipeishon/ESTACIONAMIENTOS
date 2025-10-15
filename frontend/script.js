@@ -274,12 +274,14 @@ document.addEventListener('DOMContentLoaded', () => {
     confirmModalReservationBtn.addEventListener('click', handleConfirmReservation);
 
     function handleError(error, userMessage) {
-        console.error(error);
+        console.error("Error capturado:", error);
+        const message = error?.data?.message || error?.message || userMessage || 'Ocurrió un error inesperado.';
+
         if (error.status === 401) {
             showToast('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.');
             handleLogout();
         } else {
-            showToast(userMessage || error.message);
+            showToast(message);
         }
     }
 

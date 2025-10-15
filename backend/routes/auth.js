@@ -109,11 +109,10 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ message: 'El token y la nueva contraseña son requeridos.' });
     }
 
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-    
     const result = await db.query(
       'SELECT * FROM users WHERE reset_token = $1 AND reset_token_expires > $2',
-      [hashedToken, Date.now()]
+      // El token que llega del cliente es el original, debemos hashearlo para compararlo con el de la BD
+      [crypto.createHash('sha256').update(token).digest('hex'), Date.now()]
     );
     const user = result.rows[0];
 
