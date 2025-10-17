@@ -39,19 +39,46 @@
             <div id="registerView" style="display: none;">
                 <h2>Registrarse</h2>
                 <form id="registerForm" role="form" aria-label="Formulario de registro">
+                    <!-- Campo Nombre -->
                     <div class="form-group">
-                        <label for="registerName">Nombre y Apellido:</label>
-                        <input type="text" id="registerName" minlength="5" title="Por favor, ingrese su nombre y al menos un apellido." required>
+                        <label for="registerName">Nombre Completo</label>
+                        <input type="text" id="registerName" name="name" required autocomplete="name">
                     </div>
+            
+                    <!-- Campo Email -->
                     <div class="form-group">
-                        <label for="registerEmail">Email:</label>
-                        <input type="email" id="registerEmail" required aria-required="true">
+                        <label for="registerEmail">Correo Electrónico</label>
+                        <input type="email" id="registerEmail" name="email" required autocomplete="email">
                     </div>
+            
+                    <!-- Campo RUT -->
+                    <div class="form-group">
+                        <label for="register-rut">RUT</label>
+                        <input type="text" id="register-rut" name="rut" placeholder="12.345.678-9" autocomplete="off">
+                    </div>
+            
+                    <!-- Campo Teléfono -->
+                    <div class="form-group">
+                        <label for="register-phone">Teléfono</label>
+                        <div class="phone-input-group">
+                            <span>+56</span>
+                            <input type="tel" id="register-phone" name="phone_number" placeholder="9 1234 5678" autocomplete="tel-national">
+                        </div>
+                    </div>
+            
+                    <!-- Campo Patente -->
+                    <div class="form-group">
+                        <label for="register-plate">Patente Vehicular</label>
+                        <input type="text" id="register-plate" name="license_plate" placeholder="ABCD-12" autocomplete="off" style="text-transform: uppercase;">
+                    </div>
+            
+                    <!-- Campo Contraseña -->
                     <div class="form-group">
                         <label for="registerPassword">Contraseña:</label>
-                        <input type="password" id="registerPassword" required>
+                        <input type="password" id="registerPassword" name="password" required autocomplete="new-password">
+                        <small class="password-hint">Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 símbolo (@$!%*?&).</small>
                     </div>
-                    <button type="submit">Registrarse</button>
+                    <button type="submit" class="button">Registrarse</button>
                     <p class="toggle-auth-view">¿Ya tienes una cuenta? <a href="#" id="showLoginLink">Inicia Sesión</a></p>
                 </form>
             </div>
@@ -129,6 +156,43 @@
             <button id="deleteAllButton" class="delete-all-button" style="display: none;">Eliminar Todas las Reservas</button>
             <div id="reservationsList" role="list" aria-label="Lista de reservas existentes"></div>
         </section>
+
+        <section id="adminSection" style="display: none;" aria-labelledby="admin-heading">
+            <h2 id="admin-heading">Panel de Administración</h2>
+            <h3>Gestionar Usuarios</h3>
+            <div class="form-group">
+                <label for="userSearchInput">Buscar usuario por nombre o email:</label>
+                <input type="text" id="userSearchInput" placeholder="Escriba para filtrar...">
+            </div>
+            <div class="table-container">
+                <table id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>RUT</th>
+                            <th>Rol</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- Los usuarios se cargarán aquí -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Modal para editar usuario -->
+        <div id="editUserModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close" id="editUserModalClose">&times;</span>
+                <h3>Editar Usuario</h3>
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <!-- Los campos del formulario se generarán aquí -->
+                </form>
+            </div>
+        </div>
 
 
     </main>

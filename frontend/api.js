@@ -26,13 +26,13 @@ export async function login(email, password) {
     return handleResponse(response);
 }
 
-export async function register(name, email, password) {
+export async function register(userData) {
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify(userData)
     });
     return handleResponse(response);
 }
@@ -131,6 +131,18 @@ export async function getUsers() {
     const response = await fetch(`${API_BASE_URL}/users`, {
         headers: getAuthHeaders(),
         cache: 'no-cache'
+    });
+    return handleResponse(response);
+}
+
+export async function updateUser(userId, userData) {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify(userData)
     });
     return handleResponse(response);
 }

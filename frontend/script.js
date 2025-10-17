@@ -1,7 +1,7 @@
-import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, deleteAllReservationsForUser, login, register, forgotPassword, resetPassword } from './api.js';
-import { displayReservations, showView } from './ui.js';
+import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, deleteAllReservationsForUser, login, register, forgotPassword, resetPassword, getUsers, updateUser } from './api.js';
+import { displayReservations, showView, displayUsers } from './ui.js';
 import { showToast } from './toast.js';
-import { setAppState, getUser, getAllReservations, getSelectedSpotDetails, subscribe } from './store.js';
+import { setAppState, getUser, getAllReservations, getSelectedSpotDetails, subscribe, getAllUsers } from './store.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos del DOM
@@ -10,9 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginPasswordInput = document.getElementById('loginPassword');
     
     const registerForm = document.getElementById('registerForm');
-    const registerNameInput = document.getElementById('registerName');
-    const registerEmailInput = document.getElementById('registerEmail');
-    const registerPasswordInput = document.getElementById('registerPassword');
 
     const showRegisterLink = document.getElementById('showRegisterLink');
     const showLoginLink = document.getElementById('showLoginLink');
@@ -45,6 +42,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetTokenInput = document.getElementById('resetToken');
     const newPasswordInput = document.getElementById('newPassword');
     const confirmPasswordInput = document.getElementById('confirmPassword');
+
+    // Elementos de Admin
+    const adminSection = document.getElementById('adminSection');
+    const usersTableBody = document.getElementById('usersTableBody');
+    const editUserModal = document.getElementById('editUserModal');
+    const editUserForm = document.getElementById('editUserForm');
+    const userSearchInput = document.getElementById('userSearchInput');
 
     // --- Lógica de Tema ---
     const applyTheme = (theme) => {
@@ -87,16 +91,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleRegister = async (event) => {
         event.preventDefault();
-        const name = registerNameInput.value.trim();
-        const email = registerEmailInput.value.trim();
-        const password = registerPasswordInput.value.trim();
+        
+        const formData = new FormData(registerForm);
+        const data = Object.fromEntries(formData.entries());
 
-        if (!name || !email || !password) {
-            return showToast('Por favor, complete todos los campos para registrarse.');
+        if (!data.name || !data.email || !data.password) {
+            return showToast('Por favor, complete al menos nombre, correo y contraseña.');
+        }
+
+        // Formatear el número de teléfono antes de enviar
+        if (data.phone_number) {
+            data.phone_number = `+56${data.phone_number.replace(/\s/g, '')}`;
         }
 
         try {
-            await register(name, email, password);
+            await register(data); // Enviamos el objeto completo con todos los campos
             showToast('Registro exitoso. Ahora puede iniciar sesión.');
             registerForm.reset();
             loginView.style.display = 'block';
@@ -167,6 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 logoutButton.style.display = 'block';
                 reservationHeading.textContent = `Reservar Estacionamiento (${getUser().name})`;
                 showView('reservationSection');
+                if (getUser().role === 'admin') {
+                    adminSection.style.display = 'block'; // Usar display directo en lugar de showView
+                    loadUsers();
+                }
                 initializeGridAndReservations();
             } else {
                 setAppState({ token: null, user: null });
@@ -264,6 +277,52 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
+    // --- Lógica de Admin ---
+    async function loadUsers() {
+        try {
+            setAppState({ allUsers: [] }); // Limpiar estado previo
+            const users = await getUsers();
+            setAppState({ allUsers: users }); // Guardar usuarios en el store
+            displayUsers(usersTableBody, users, openEditUserModal);
+        } catch (error) {
+            handleError(error, 'Error al cargar los usuarios.');
+        }
+    }
+
+    function openEditUserModal(user) {
+        editUserForm.innerHTML = `
+            <input type="hidden" id="editUserId" value="${user.id}">
+            <div class="form-group"><label>Nombre:</label><input type="text" id="editUserName" value="${user.name}"></div>
+            <div class="form-group"><label>Email:</label><input type="email" id="editUserEmail" value="${user.email}" disabled></div>
+            <div class="form-group"><label>RUT:</label><input type="text" id="editUserRut" value="${user.rut || ''}"></div>
+            <div class="form-group"><label>Patente:</label><input type="text" id="editUserPlate" value="${user.license_plate || ''}"></div>
+            <div class="form-group"><label>Teléfono:</label><input type="text" id="editUserPhone" value="${user.phone_number || ''}"></div>
+            <div class="form-group">
+                <label>Rol:</label>
+                <select id="editUserRole">
+                    <option value="user" ${user.role === 'user' ? 'selected' : ''}>Usuario</option>
+                    <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                </select>
+            </div>
+            <button type="submit">Guardar Cambios</button>
+        `;
+        editUserModal.style.display = 'block';
+    }
+
+    document.getElementById('editUserModalClose').addEventListener('click', () => editUserModal.style.display = 'none');
+    editUserForm.addEventListener('submit', handleUpdateUser);
+    userSearchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const allUsers = getAllUsers();
+        const filteredUsers = allUsers.filter(user => 
+            user.name.toLowerCase().includes(searchTerm) || 
+            user.email.toLowerCase().includes(searchTerm)
+        );
+        displayUsers(usersTableBody, filteredUsers, openEditUserModal);
+    });
+
+
 
     // --- Lógica de Modal ---
     modalCloseBtn.addEventListener('click', () => closeModal());
@@ -516,6 +575,28 @@ document.addEventListener('DOMContentLoaded', () => {
             addOption(endTimeInput, 'No disponible', '', true);
         }
     }
+
+    async function handleUpdateUser(event) {
+        event.preventDefault();
+        const userId = document.getElementById('editUserId').value;
+        const userData = {
+            name: document.getElementById('editUserName').value,
+            rut: document.getElementById('editUserRut').value,
+            license_plate: document.getElementById('editUserPlate').value,
+            phone_number: document.getElementById('editUserPhone').value,
+            role: document.getElementById('editUserRole').value,
+        };
+
+        try {
+            const result = await updateUser(userId, userData);
+            showToast(result.message);
+            editUserModal.style.display = 'none';
+            loadUsers(); // Recargar la lista de usuarios
+        } catch (error) {
+            handleError(error, 'Error al actualizar el usuario.');
+        }
+    }
+
 
     async function loadAndDisplayReservations() {
         try {

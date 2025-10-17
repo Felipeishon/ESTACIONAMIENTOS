@@ -7,6 +7,7 @@ const state = {
     selectedDate: null,
     allTimeSlotsForSpot: [],
     allReservations: [],
+    allUsers: [], // Nuevo estado para guardar la lista de usuarios
 };
 
 const listeners = new Set();
@@ -54,4 +55,8 @@ export function getAllReservations() {
 
 export function getSelectedSpotDetails() {
     return { spotId: state.selectedSpotId, date: state.selectedDate, timeSlots: state.allTimeSlotsForSpot };
+}
+
+export function getAllUsers() {
+    return state.allUsers;
 }

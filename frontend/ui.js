@@ -87,36 +87,32 @@ export function showView(viewId) {
     }
 }
 
-export function displayUsers(users) {
-    const usersList = document.getElementById('usersList');
-    usersList.innerHTML = '';
+export function displayUsers(tableBody, users, onEdit) {
+    tableBody.innerHTML = '';
 
     if (!users || users.length === 0) {
-        usersList.innerHTML = '<p>No hay usuarios registrados.</p>';
+        tableBody.innerHTML = '<tr><td colspan="5">No se encontraron usuarios.</td></tr>';
         return;
     }
 
-    const table = document.createElement('table');
-    table.className = 'user-table';
-    table.innerHTML = `
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Email</th>
-                <th>Rol</th>
-                <th>Fecha de Registro</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${users.map(user => `
-                <tr>
-                    <td>${user.name}</td>
-                    <td>${user.email}</td>
-                    <td>${user.role}</td>
-                    <td>${new Date(user.created_at).toLocaleDateString()}</td>
-                </tr>
-            `).join('')}
-        </tbody>
-    `;
-    usersList.appendChild(table);
+    users.forEach(user => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${user.name}</td>
+            <td>${user.email}</td>
+            <td>${user.rut || 'No especificado'}</td>
+            <td>${user.role}</td>
+            <td>
+                <button class="edit-user-btn" data-user-id="${user.id}">Editar</button>
+            </td>
+        `;
+        
+        const editButton = row.querySelector('.edit-user-btn');
+        if (editButton) {
+            editButton.addEventListener('click', () => {
+                onEdit(user);
+            });
+        }
+        tableBody.appendChild(row);
+    });
 }
