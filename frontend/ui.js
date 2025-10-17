@@ -87,7 +87,7 @@ export function showView(viewId) {
     }
 }
 
-export function displayUsers(tableBody, users, onEdit) {
+export function displayUsers(tableBody, users, onEdit, onDelete) {
     tableBody.innerHTML = '';
 
     if (!users || users.length === 0) {
@@ -103,16 +103,21 @@ export function displayUsers(tableBody, users, onEdit) {
             <td>${user.rut || 'No especificado'}</td>
             <td>${user.role}</td>
             <td>
-                <button class="edit-user-btn" data-user-id="${user.id}">Editar</button>
+                <button class="edit-user-btn" title="Editar ${user.name}">Editar</button>
+                <button class="delete-user-btn" title="Eliminar ${user.name}">Eliminar</button>
             </td>
         `;
         
         const editButton = row.querySelector('.edit-user-btn');
-        if (editButton) {
-            editButton.addEventListener('click', () => {
-                onEdit(user);
-            });
-        }
+        editButton.addEventListener('click', () => {
+            onEdit(user);
+        });
+
+        const deleteButton = row.querySelector('.delete-user-btn');
+        deleteButton.addEventListener('click', () => {
+            onDelete(user);
+        });
+
         tableBody.appendChild(row);
     });
 }

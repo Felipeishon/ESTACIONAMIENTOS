@@ -504,6 +504,21 @@ body.dark-theme {
     margin-top: 0.3rem;
 }
 
+/* Wrapper para el campo de contraseña con toggle */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    cursor: pointer;
+    user-select: none; /* Evita que el icono se seleccione como texto */
+    color: #888;
+}
+
 /* Estilos para la tabla de administración */
 .table-container {
     overflow-x: auto;

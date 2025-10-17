@@ -3,8 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../utils/db');
-const config = require('../config');
-const { sendPasswordResetEmail } = require('../utils');
+const config = require('../config');const { sendPasswordResetEmail, sendRegistrationConfirmationEmail } = require('../utils');
 const {
   validateRut,
   validatePhoneNumber,
@@ -17,27 +16,39 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, password, rut, license_plate, phone_number } = req.body;
 
-    // Validaciones de campos
+    // Validaciones individuales y obligatorias para cada campo.
     if (!name || !email) {
       return res.status(400).json({ message: 'El nombre y el correo son obligatorios.' });
     }
+
     const sanitizedPassword = validatePassword(password);
     if (!sanitizedPassword) {
       return res.status(400).json({ message: 'La contraseña no cumple con los requisitos de seguridad: mínimo 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.' });
     }
-    const sanitizedRut = rut ? validateRut(rut) : null;
-    const sanitizedLicensePlate = license_plate ? validateLicensePlate(license_plate) : null;
-    const sanitizedPhoneNumber = phone_number ? validatePhoneNumber(phone_number) : null;
 
-    const existingUser = await db.query('SELECT * FROM users WHERE email = $1 OR rut = $2', [email, sanitizedRut]);
-    if (existingUser.rows.length > 0) {
-      const userExists = existingUser.rows[0];
-      if (userExists.email === email) {
-        return res.status(400).json({ message: 'Ya existe un usuario con este correo electrónico.' });
-      }
-      if (userExists.rut === sanitizedRut && sanitizedRut !== null) {
-        return res.status(400).json({ message: 'Ya existe un usuario con este RUT.' });
-      }
+    const sanitizedRut = validateRut(rut);
+    if (!sanitizedRut) {
+      return res.status(400).json({ message: 'El RUT es obligatorio y debe tener un formato válido.' });
+    }
+    const sanitizedLicensePlate = validateLicensePlate(license_plate);
+    if (!sanitizedLicensePlate) {
+      return res.status(400).json({ message: 'La patente es obligatoria y debe tener un formato válido.' });
+    }
+    const sanitizedPhoneNumber = validatePhoneNumber(phone_number);
+    if (!sanitizedPhoneNumber) {
+      return res.status(400).json({ message: 'El teléfono es obligatorio y debe tener un formato internacional válido (ej: +56912345678).' });
+    }
+
+    // 1. Verificar si el email ya existe
+    const existingEmail = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({ message: 'Ya existe un usuario con este correo electrónico.' });
+    }
+
+    // 2. Verificar si el RUT ya existe (ahora es siempre obligatorio)
+    const existingRut = await db.query('SELECT id FROM users WHERE rut = $1', [sanitizedRut]);
+    if (existingRut.rows.length > 0) {
+      return res.status(400).json({ message: 'Ya existe un usuario con este RUT.' });
     }
 
     const hashedPassword = await bcrypt.hash(sanitizedPassword, 10);
@@ -47,6 +58,16 @@ router.post('/register', async (req, res) => {
       'INSERT INTO users (name, email, password, role, rut, license_plate, phone_number) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
       [name, email, hashedPassword, role, sanitizedRut, sanitizedLicensePlate, sanitizedPhoneNumber]
     );
+
+    // Enviar correo de confirmación de registro
+    const userDataForEmail = {
+      name,
+      email,
+      rut: sanitizedRut,
+      license_plate: sanitizedLicensePlate,
+      phone_number: sanitizedPhoneNumber
+    };
+    sendRegistrationConfirmationEmail(userDataForEmail).catch(console.error);
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {

@@ -60,22 +60,22 @@
                     <!-- Campo Teléfono -->
                     <div class="form-group">
                         <label for="register-phone">Teléfono</label>
-                        <div class="phone-input-group">
-                            <span>+56</span>
-                            <input type="tel" id="register-phone" name="phone_number" placeholder="9 1234 5678" autocomplete="tel-national">
-                        </div>
+                        <input type="tel" id="register-phone" name="phone_number" placeholder="Ej: +56912345678" autocomplete="tel">
                     </div>
             
                     <!-- Campo Patente -->
                     <div class="form-group">
                         <label for="register-plate">Patente Vehicular</label>
-                        <input type="text" id="register-plate" name="license_plate" placeholder="ABCD-12" autocomplete="off" style="text-transform: uppercase;">
+                        <input type="text" id="register-plate" name="license_plate" placeholder="AB - CD - 12" autocomplete="off" style="text-transform: uppercase;">
                     </div>
             
                     <!-- Campo Contraseña -->
                     <div class="form-group">
-                        <label for="registerPassword">Contraseña:</label>
-                        <input type="password" id="registerPassword" name="password" required autocomplete="new-password">
+                        <label for="registerPassword">Contraseña:</label>                        
+                        <div class="password-wrapper">
+                            <input type="password" id="registerPassword" name="password" required autocomplete="new-password">
+                            <span class="toggle-password" id="toggleRegisterPassword">👁️</span>
+                        </div>
                         <small class="password-hint">Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 símbolo (@$!%*?&).</small>
                     </div>
                     <button type="submit" class="button">Registrarse</button>

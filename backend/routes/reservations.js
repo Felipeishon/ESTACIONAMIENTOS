@@ -79,57 +79,6 @@ router.delete('/admin/all', authMiddleware, checkRole(['admin']), async (req, re
     }
 });
 
-// DELETE /api/reservations/admin/user/:email - ADMIN ONLY
-router.delete('/admin/user/:email', authMiddleware, checkRole(['admin']), async (req, res) => {
-    try {
-        const { email } = req.params;
-        const userResult = await db.query('SELECT id, name FROM users WHERE email = $1', [email]);
-
-        if (userResult.rows.length === 0) {
-            return res.status(404).json({ message: 'Usuario no encontrado.' });
-        }
-        const { id: userId, name } = userResult.rows[0];
-
-        // Step 1: Get all reservations for the user
-        const reservationsToCancel = await db.query(`
-            SELECT r.id, r.date, r.start_time, r.end_time, s.name as "spotName"
-            FROM reservations r
-            JOIN spots s ON r.spot_id = s.id
-            WHERE r.user_id = $1
-        `, [userId]);
-
-        // Step 2: Delete the reservations from the database
-        if (reservationsToCancel.rows.length > 0) {
-            await db.query('DELETE FROM reservations WHERE user_id = $1', [userId]);
-        }
-
-        // Step 3: Now, send a cancellation email for each reservation that was fetched
-        if (reservationsToCancel.rows.length > 0) {
-            const emailPromises = reservationsToCancel.rows.map(reservation => {
-                const emailData = {
-                    ...reservation,
-                    email, // Add user email
-                    name,  // Add user name
-                    date: new Date(reservation.date).toISOString().split('T')[0],
-                };
-                return sendReservationCancellationEmail(emailData);
-            });
-            Promise.allSettled(emailPromises).then(results => {
-                results.forEach(result => {
-                    if (result.status === 'rejected') {
-                        console.error("Email sending failed after response was sent:", result.reason);
-                    }
-                });
-            });
-        }
-
-        res.status(200).json({ message: `Todas las reservas para ${email} han sido eliminadas. Las notificaciones se están enviando.` });
-    } catch (error) {
-        console.error(`[DELETE /api/reservations/admin/user/${req.params.email}] Failed:`, error);
-        res.status(500).json({ message: 'Error al eliminar las reservas del usuario.' });
-    }
-});
-
 // DELETE /api/reservations/:id - User or Admin
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {

@@ -146,3 +146,14 @@ export async function updateUser(userId, userData) {
     });
     return handleResponse(response);
 }
+
+export async function deleteUser(userId) {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        }
+    });
+    return handleResponse(response);
+}

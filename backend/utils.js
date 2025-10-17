@@ -329,6 +329,46 @@ const sendPasswordResetEmail = async (user, token) => {
   }
 };
 
+const sendRegistrationConfirmationEmail = async (user) => {
+  if (!config.email.host || !config.email.user || !config.email.pass) {
+    console.warn('[sendRegistrationConfirmationEmail] Email service is not configured. Skipping email notification.');
+    return;
+  }
+  const transporter = nodemailer.createTransport({ host: config.email.host, port: config.email.port, secure: config.email.secure, auth: { user: config.email.user, pass: config.email.pass } });
+  
+  const mailOptions = {
+    from: config.email.from,
+    to: user.email,
+    subject: '¡Bienvenido! Tu cuenta ha sido creada exitosamente',
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+        <div style="max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+          <h1 style="color: #007bff; font-size: 24px;">¡Bienvenido, ${user.name}!</h1>
+          <p>Tu cuenta en el Sistema de Reservas de Estacionamiento ha sido creada con éxito.</p>
+          <p>A continuación, te mostramos los datos que registraste:</p>
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Tus Datos</h3>
+            <ul style="list-style-type: none; padding: 0;">
+              <li style="margin-bottom: 10px;"><strong>Nombre:</strong> ${user.name}</li>
+              <li style="margin-bottom: 10px;"><strong>Email:</strong> ${user.email}</li>
+              <li style="margin-bottom: 10px;"><strong>RUT:</strong> ${user.rut || 'No ingresado'}</li>
+              <li style="margin-bottom: 10px;"><strong>Patente:</strong> ${user.license_plate || 'No ingresada'}</li>
+              <li style="margin-bottom: 10px;"><strong>Teléfono:</strong> ${user.phone_number || 'No ingresado'}</li>
+            </ul>
+          </div>
+          <p style="font-size: 0.9em; color: #666;"><strong>Importante:</strong> Si alguno de estos datos es incorrecto (excepto la contraseña), por favor, contacta a la mesa de ayuda para solicitar la actualización.</p>
+          <p>¡Ya puedes iniciar sesión y comenzar a reservar!</p>
+        </div>
+      </div>
+    `
+  };
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error(`[sendRegistrationConfirmationEmail] Error sending email to ${user.email}:`, error);
+  }
+};
+
 const sendWeekendCoordinationEmail = async (reservation, coordinationEmail) => {
   if (!config.email.host || !config.email.user || !config.email.pass) {
     console.warn('[sendWeekendCoordinationEmail] Email service is not configured. Skipping email notification.');
@@ -385,6 +425,7 @@ module.exports = {
   validateAndCreateReservation,
   sendReservationConfirmationEmail,
   sendReservationCancellationEmail,
+  sendRegistrationConfirmationEmail,
   sendPasswordResetEmail,
   sendWeekendCoordinationEmail,
 };

@@ -1,4 +1,4 @@
-import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, deleteAllReservationsForUser, login, register, forgotPassword, resetPassword, getUsers, updateUser } from './api.js';
+import { getParkingSpots, createReservation, getReservations, deleteReservation, deleteAllReservations, deleteAllReservationsForUser, login, register, forgotPassword, resetPassword, getUsers, updateUser, deleteUser } from './api.js';
 import { displayReservations, showView, displayUsers } from './ui.js';
 import { showToast } from './toast.js';
 import { setAppState, getUser, getAllReservations, getSelectedSpotDetails, subscribe, getAllUsers } from './store.js';
@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginPasswordInput = document.getElementById('loginPassword');
     
     const registerForm = document.getElementById('registerForm');
+    const registerRutInput = document.getElementById('register-rut');
+    const registerPlateInput = document.getElementById('register-plate');
 
     const showRegisterLink = document.getElementById('showRegisterLink');
     const showLoginLink = document.getElementById('showLoginLink');
@@ -99,9 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return showToast('Por favor, complete al menos nombre, correo y contraseña.');
         }
 
-        // Formatear el número de teléfono antes de enviar
+        // Limpiar espacios del número de teléfono antes de enviar
         if (data.phone_number) {
-            data.phone_number = `+56${data.phone_number.replace(/\s/g, '')}`;
+            data.phone_number = data.phone_number.replace(/\s/g, '');
         }
 
         try {
@@ -200,6 +202,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- MANEJADORES DE EVENTOS ---
     themeToggleButton.addEventListener('click', toggleTheme);
     loginForm.addEventListener('submit', handleLogin);
+
+    // Formateo automático del campo RUT
+    if (registerRutInput) {
+        registerRutInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/[^0-9kK.-]/g, ''); // Permitir solo números, k, puntos y guion
+            value = value.replace(/\./g, '').replace(/-/g, ''); // Quitar puntos y guion para reformatear
+
+            let body = value.slice(0, -1);
+            let dv = value.slice(-1).toUpperCase();
+
+            if (body.length > 0) {
+                body = new Intl.NumberFormat('es-CL').format(body);
+                e.target.value = `${body}-${dv}`;
+            } else {
+                e.target.value = dv;
+            }
+        });
+    }
+
+
     registerForm.addEventListener('submit', handleRegister);
     logoutButton.addEventListener('click', handleLogout);
     window.addEventListener('hashchange', handleRouteChange);
@@ -215,6 +237,36 @@ document.addEventListener('DOMContentLoaded', () => {
         registerView.style.display = 'none';
         loginView.style.display = 'block';
     });
+
+    // Lógica para mostrar/ocultar contraseña en el registro
+    const toggleRegisterPassword = document.getElementById('toggleRegisterPassword');
+    if (toggleRegisterPassword) {
+        toggleRegisterPassword.addEventListener('click', () => {
+            const passwordInput = document.getElementById('registerPassword');
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            // Cambiar el icono (opcional, pero mejora la UX)
+            toggleRegisterPassword.textContent = type === 'password' ? '👁️' : '🙈';
+        });
+    }
+    
+    // Formateo automático del campo Patente
+    if (registerPlateInput) {
+        registerPlateInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            if (value.length > 6) {
+                value = value.slice(0, 6);
+            }
+
+            if (value.length > 4) {
+                e.target.value = `${value.slice(0, 2)} - ${value.slice(2, 4)} - ${value.slice(4)}`;
+            } else if (value.length > 2) {
+                e.target.value = `${value.slice(0, 2)} - ${value.slice(2)}`;
+            } else {
+                e.target.value = value;
+            }
+        });
+    }
 
     // Navegación para restablecer contraseña
     forgotPasswordLink.addEventListener('click', (e) => {
@@ -284,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setAppState({ allUsers: [] }); // Limpiar estado previo
             const users = await getUsers();
             setAppState({ allUsers: users }); // Guardar usuarios en el store
-            displayUsers(usersTableBody, users, openEditUserModal);
+            displayUsers(usersTableBody, users, openEditUserModal, handleDeleteUser);
         } catch (error) {
             handleError(error, 'Error al cargar los usuarios.');
         }
@@ -319,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
             user.name.toLowerCase().includes(searchTerm) || 
             user.email.toLowerCase().includes(searchTerm)
         );
-        displayUsers(usersTableBody, filteredUsers, openEditUserModal);
+        displayUsers(usersTableBody, filteredUsers, openEditUserModal, handleDeleteUser);
     });
 
 
@@ -594,6 +646,18 @@ document.addEventListener('DOMContentLoaded', () => {
             loadUsers(); // Recargar la lista de usuarios
         } catch (error) {
             handleError(error, 'Error al actualizar el usuario.');
+        }
+    }
+
+    async function handleDeleteUser(user) {
+        if (confirm(`¿Estás seguro de que quieres eliminar al usuario '${user.name}' (${user.email})? Esta acción no se puede deshacer y eliminará todas sus reservas.`)) {
+            try {
+                const result = await deleteUser(user.id);
+                showToast(result.message);
+                loadUsers(); // Recargar la lista de usuarios para reflejar la eliminación
+            } catch (error) {
+                handleError(error, 'Error al eliminar el usuario.');
+            }
         }
     }
 

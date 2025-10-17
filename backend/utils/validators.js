@@ -37,13 +37,14 @@ function validateRut(rut) {
 
 /**
  * Valida un número de teléfono chileno.
- * Asume el formato +569...
+ * Acepta el formato internacional E.164 (ej: +56912345678).
  * @param {string} phone - El número de teléfono.
  * @returns {string|null} El número validado o null si es inválido.
  */
 function validatePhoneNumber(phone) {
     if (!phone || typeof phone !== 'string') return null;
-    const phoneRegex = /^\+569\d{8}$/;
+    // Regex para formato E.164: un '+' seguido de 1 a 15 dígitos.
+    const phoneRegex = /^\+\d{1,15}$/;
     return phoneRegex.test(phone) ? phone : null;
 }
 
@@ -51,14 +52,14 @@ function validatePhoneNumber(phone) {
  * Valida una patente vehicular chilena.
  * Acepta formatos como 'ABCD12' o 'AB-CD-12'.
  * @param {string} plate - La patente a validar.
- * @returns {string|null} La patente en formato estándar 'AB-CD-12' o null si es inválida.
+ * @returns {string|null} La patente en formato estándar 'AB - CD - 12' o null si es inválida.
  */
 function validateLicensePlate(plate) {
     if (!plate || typeof plate !== 'string') return null;
     const cleanPlate = plate.replace(/[\s\-]/g, '').toUpperCase();
     const plateRegex = /^[A-Z]{4}\d{2}$/;
     if (!plateRegex.test(cleanPlate)) return null;
-    return `${cleanPlate.slice(0, 2)}-${cleanPlate.slice(2, 4)}-${cleanPlate.slice(4, 6)}`;
+    return `${cleanPlate.slice(0, 2)} - ${cleanPlate.slice(2, 4)} - ${cleanPlate.slice(4, 6)}`;
 }
 
 /**
