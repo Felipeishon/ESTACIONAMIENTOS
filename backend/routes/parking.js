@@ -4,7 +4,7 @@ const { generateGridForDate } = require('../utils');
 const router = express.Router();
 
 // GET /api/parking-spots?date=YYYY-MM-DD
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const { date } = req.query;
     console.log(`[GET /api/parking-spots] Request received: ${JSON.stringify({ date })}`);
@@ -17,8 +17,7 @@ router.get('/', async (req, res) => {
     const spots = await generateGridForDate(date);
     res.json(spots);
   } catch (error) {
-    console.error('[GET /api/parking-spots] Failed to get parking spots:', error);
-    res.status(500).json({ message: 'Error processing parking spot availability.' });
+    next(error);
   }
 });
 
