@@ -59,7 +59,8 @@ function validateLicensePlate(plate) {
     const cleanPlate = plate.replace(/[\s\-]/g, '').toUpperCase();
     const plateRegex = /^[A-Z]{4}\d{2}$/;
     if (!plateRegex.test(cleanPlate)) return null;
-    return `${cleanPlate.slice(0, 2)} - ${cleanPlate.slice(2, 4)} - ${cleanPlate.slice(4, 6)}`;
+    // Se retorna la patente limpia y sin formato para asegurar consistencia en la DB.
+    return cleanPlate;
 }
 
 /**

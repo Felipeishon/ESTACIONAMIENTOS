@@ -104,18 +104,12 @@ export function displayUsers(tableBody, users, onEdit, onDelete) {
             <td>${user.role}</td>
             <td>
                 <button class="edit-user-btn" title="Editar ${user.name}">Editar</button>
-                <button class="delete-user-btn" title="Eliminar ${user.name}">Eliminar</button>
             </td>
         `;
         
         const editButton = row.querySelector('.edit-user-btn');
         editButton.addEventListener('click', () => {
             onEdit(user);
-        });
-
-        const deleteButton = row.querySelector('.delete-user-btn');
-        deleteButton.addEventListener('click', () => {
-            onDelete(user);
         });
 
         tableBody.appendChild(row);

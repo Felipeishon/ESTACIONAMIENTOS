@@ -1,0 +1,17 @@
+<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+  <div style="max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+    <h1 style="color: #007bff; font-size: 24px;">¡Reserva Confirmada!</h1>
+    <p>Hola {{name}},</p>
+    <p>Tu reserva de estacionamiento ha sido confirmada exitosamente. A continuación, los detalles:</p>
+    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+      <h3 style="margin-top: 0;">Detalles de la Reserva</h3>
+      <ul style="list-style-type: none; padding: 0;">
+        <li style="margin-bottom: 10px;"><strong>Estacionamiento:</strong> {{spotName}}</li>
+        <li style="margin-bottom: 10px;"><strong>Fecha:</strong> {{date}}</li>
+        <li style="margin-bottom: 10px;"><strong>Horario:</strong> {{start_time}} - {{end_time}}</li>
+      </ul>
+    </div>
+    <p>Si necesitas cancelar esta reserva, puedes hacerlo desde la sección "Mis Reservas" en la aplicación.</p>
+    <p>Gracias por usar nuestro sistema.</p>
+  </div>
+</div>

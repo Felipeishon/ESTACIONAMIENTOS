@@ -32,6 +32,18 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
 
+// Middleware de manejo de errores global. Debe ir después de todas las rutas.
+app.use((err, req, res, next) => {
+    console.error(`[Global Error Handler] ${req.method} ${req.path}`, err);
+
+    // Si el error tiene un statusCode, es un error controlado (ApiError)
+    const statusCode = err.statusCode || 500;
+    // Para errores 500, mostramos un mensaje genérico por seguridad.
+    const message = err.statusCode ? err.message : 'Ocurrió un error inesperado en el servidor.';
+
+    res.status(statusCode).json({ message });
+});
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

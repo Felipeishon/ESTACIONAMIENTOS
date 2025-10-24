@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerForm = document.getElementById('registerForm');
     const registerRutInput = document.getElementById('register-rut');
     const registerPlateInput = document.getElementById('register-plate');
+    const registerNameInput = document.getElementById('registerName');
 
     const showRegisterLink = document.getElementById('showRegisterLink');
     const showLoginLink = document.getElementById('showLoginLink');
@@ -97,10 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData(registerForm);
         const data = Object.fromEntries(formData.entries());
 
-        if (!data.name || !data.email || !data.password) {
-            return showToast('Por favor, complete al menos nombre, correo y contraseña.');
-        }
-
         // Limpiar espacios del número de teléfono antes de enviar
         if (data.phone_number) {
             data.phone_number = data.phone_number.replace(/\s/g, '');
@@ -113,7 +110,16 @@ document.addEventListener('DOMContentLoaded', () => {
             loginView.style.display = 'block';
             registerView.style.display = 'none';
         } catch (error) {
-            handleError(error);
+            // Si el error tiene detalles (errores de validación del backend)
+            if (error.details) {
+                // Mostramos el primer error de validación como un toast.
+                // error.message ya contiene el primer error gracias al cambio en api.js
+                showToast(error.message, 'error');
+                console.error('Errores de validación:', error.details);
+            } else {
+                // Para otros tipos de errores, usamos el manejador genérico.
+                handleError(error);
+            }
         }
     };
 
@@ -357,9 +363,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
                 </select>
             </div>
-            <button type="submit">Guardar Cambios</button>
+            <div class="modal-footer">
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
+                <button type="button" id="deleteUserFromModalBtn" class="btn-danger">Eliminar Usuario</button>
+            </div>
         `;
         editUserModal.style.display = 'block';
+
+        // Adjuntar el listener al nuevo botón de eliminar
+        const deleteBtn = document.getElementById('deleteUserFromModalBtn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                // Reutilizar la lógica de eliminación existente
+                await handleDeleteUser(user);
+                // Ocultar el modal si el usuario fue eliminado
+                editUserModal.style.display = 'none';
+            });
+        }
     }
 
     document.getElementById('editUserModalClose').addEventListener('click', () => editUserModal.style.display = 'none');

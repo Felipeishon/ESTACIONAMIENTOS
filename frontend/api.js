@@ -8,8 +8,11 @@ const getAuthHeaders = () => {
 async function handleResponse(response) {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
-        const error = new Error(errorData.message || 'An error occurred');
+        // Usamos el primer mensaje de error detallado como mensaje principal si existe.
+        const mainErrorMessage = errorData.errors ? Object.values(errorData.errors)[0] : (errorData.message || 'Ocurrió un error');
+        const error = new Error(mainErrorMessage);
         error.status = response.status;
+        error.details = errorData.errors; // Adjuntamos todos los errores detallados.
         throw error;
     }
     return response.json();

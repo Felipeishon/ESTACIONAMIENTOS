@@ -1,16 +1,15 @@
 const router = require('express').Router();
 const config = require('../config');
 const db = require('../utils/db');
+const { generateGridForDate } = require('../services/parkingService');
+const { getMyActiveReservations, validateAndCreateReservation } = require('../services/reservationService');
 const {
-    isHoliday,
-    generateGridForDate,
-    getMyActiveReservations,
     sendReservationConfirmationEmail,
     sendReservationCancellationEmail,
     sendWeekendCoordinationEmail,
-    validateAndCreateReservation,
-} = require('../utils');
+} = require('../email/emailService');
 const { authMiddleware, checkRole } = require('../middleware/authMiddleware');
+const { asyncWrapper } = require('../utils');
 
 // Helper function to get all reservations for an admin
 const getAllAdminReservations = async () => {
@@ -26,62 +25,42 @@ const getAllAdminReservations = async () => {
 };
 
 // GET /api/reservations
-router.get('/', authMiddleware, async (req, res) => {
-  try {
+router.get('/', authMiddleware, asyncWrapper(async (req, res) => {
     let reservations;
     if (req.user.role === 'admin') {
-      reservations = await getAllAdminReservations();
+        reservations = await getAllAdminReservations();
     } else {
-      reservations = await getMyActiveReservations(req.user.id);
+        reservations = await getMyActiveReservations(req.user.id);
     }
     res.json(reservations);
-  } catch (error) {
-    console.error('[GET /api/reservations] Failed to get reservations:', error);
-    res.status(500).json({ message: 'Error al recuperar las reservas de la base de datos.' });
-  }
-});
+}));
 
 // POST /api/reservations
-router.post('/', authMiddleware, async (req, res) => {
-  try {
+router.post('/', authMiddleware, asyncWrapper(async (req, res) => {
     const { newReservation, requestDate } = await validateAndCreateReservation(req.body, req.user);
 
-    // Asegurarse de que la fecha para el correo sea un string YYYY-MM-DD para evitar problemas de zona horaria en la plantilla.
-    const emailData = { ...newReservation, date: newReservation.date.split('T')[0] };
-
-    sendReservationConfirmationEmail(emailData).catch(console.error);
+    // El objeto 'newReservation' ya tiene la fecha en el formato correcto (YYYY-MM-DD).
+    // Se envían los correos de forma asíncrona para no bloquear la respuesta al usuario.
+    sendReservationConfirmationEmail(newReservation).catch(console.error);
 
     if ((requestDate.getDay() === 0 || requestDate.getDay() === 6) && config.coordinationEmail) {
         sendWeekendCoordinationEmail(newReservation, config.coordinationEmail).catch(console.error);
     }
 
+    // Se genera el estado actualizado de la grilla para la fecha de la reserva.
     const gridState = await generateGridForDate(newReservation.date);
-    const myActiveReservations = await getMyActiveReservations(req.user.id);
-    res.status(201).json({ message: 'Reserva creada con éxito', newReservation, gridState, gridDate: newReservation.date, myReservations: myActiveReservations });
-
-  } catch (error) {
-    if (error.statusCode) {
-        return res.status(error.statusCode).json({ message: error.message });
-    }
-    console.error('[POST /api/reservations] Failed to create reservation:', error);
-    res.status(500).json({ message: 'Error al guardar la reserva.' });
-  }
-});
+    
+    res.status(201).json({ message: 'Reserva creada con éxito', gridState });
+}));
 
 // DELETE /api/reservations/admin/all - ADMIN ONLY
-router.delete('/admin/all', authMiddleware, checkRole(['admin']), async (req, res) => {
-    try {
-        await db.query('TRUNCATE TABLE reservations RESTART IDENTITY');
-        res.status(200).json({ message: 'Todas las reservas han sido eliminadas.' });
-    } catch (error) {
-        console.error(`[DELETE /api/reservations/admin/all] Failed:`, error);
-        res.status(500).json({ message: 'Error al eliminar todas las reservas.' });
-    }
-});
+router.delete('/admin/all', authMiddleware, checkRole(['admin']), asyncWrapper(async (req, res) => {
+    await db.query('TRUNCATE TABLE reservations RESTART IDENTITY');
+    res.status(200).json({ message: 'Todas las reservas han sido eliminadas.' });
+}));
 
 // DELETE /api/reservations/:id - User or Admin
-router.delete('/:id', authMiddleware, async (req, res) => {
-  try {
+router.delete('/:id', authMiddleware, asyncWrapper(async (req, res) => {
     const { id } = req.params;
     const { id: userId, email, role } = req.user;
 
@@ -94,12 +73,12 @@ router.delete('/:id', authMiddleware, async (req, res) => {
         [id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Reserva no encontrada' });
+        return res.status(404).json({ message: 'Reserva no encontrada' });
     }
     const reservationToDelete = result.rows[0];
     
     if (role !== 'admin' && userId !== reservationToDelete.user_id) {
-      return res.status(403).json({ message: 'No tiene permiso para eliminar esta reserva.' });
+        return res.status(403).json({ message: 'No tiene permiso para eliminar esta reserva.' });
     }
 
     await db.query('DELETE FROM reservations WHERE id = $1', [id]);
@@ -125,15 +104,11 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const myActiveReservations = (role === 'admin') ? await getAllAdminReservations() : await getMyActiveReservations(userId);
 
     res.status(200).json({
-      message: 'Reserva eliminada con éxito',
-      gridState,
-      gridDate,
-      myReservations: myActiveReservations,
+        message: 'Reserva eliminada con éxito',
+        gridState,
+        gridDate,
+        myReservations: myActiveReservations,
     });
-  } catch (error) {
-    console.error(`[DELETE /api/reservations/${req.params.id}] Failed:`, error);
-    res.status(500).json({ message: 'Error al eliminar la reserva.' });
-  }
-});
+}));
 
 module.exports = router;
